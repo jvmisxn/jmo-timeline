@@ -1279,12 +1279,19 @@ function shapeToSVG(shape, color, sz = 12) {
 //  MAP SETUP
 // ═══════════════════════════════════════════════
 
+const WORLD_BOUNDS = [[-90, -180], [90, 180]];
 const leafMap = L.map('map', {
-  center:[25,15], zoom:2,
-  zoomControl:true, attributionControl:false, scrollWheelZoom:false,
+  center: [25, 15], zoom: 2,
+  zoomControl: true, attributionControl: false, scrollWheelZoom: false,
+  worldCopyJump: false,
+  maxBounds: WORLD_BOUNDS,
+  maxBoundsViscosity: 1.0,
 });
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-  { subdomains:'abcd', maxZoom:19 }).addTo(leafMap);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  subdomains: 'abcd', maxZoom: 19,
+  noWrap: true,       // tiles don't repeat beyond ±180°
+  bounds: WORLD_BOUNDS,
+}).addTo(leafMap);
 
 let mapMarker = null;
 
