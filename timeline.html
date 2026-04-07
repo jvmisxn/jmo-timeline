@@ -1444,12 +1444,69 @@ function stableHash(s) {
   return h >>> 0;
 }
 
+// ═══════════════════════════════════════════════
+//  LAYOUT ENGINE — collision-resolved dot positions
+// ═══════════════════════════════════════════════
+
+let _layout = new Map();                           // ev.id → y (px)
+let _layoutSig = '';                               // cache invalidation key
+
+function computeLayout() {
+  // Build a lightweight signature; recompute only when something meaningful changes
+  const sig = `${scale.toFixed(8)}|${scrollX.toFixed(1)}|${[...activeCategories].sort()}|${filterRelated}`;
+  if (sig === _layoutSig) return;
+  _layoutSig = sig;
+  _layout = new Map();
+
+  const evs  = visibleEvents();
+  const ay   = axisY();
+  const PAD  = 6;     // minimum gap (px) between dot edges
+  const placed = [];  // [{x, y, r}] already-resolved dots
+
+  // High-importance dots get first pick of good positions.
+  // Within same importance, sort by year so left-to-right ordering is stable.
+  const sorted = [...evs].sort((a, b) => b.imp - a.imp || a.year - b.year);
+
+  for (const ev of sorted) {
+    const x    = yearToX(ev.year);
+    const r    = Math.max(4, ev.imp * 9.5);
+    const pref = (stableHash(ev.id) & 1) === 0;   // true = prefer above axis
+    const y    = _resolveY(x, r, ay, pref, placed, PAD);
+    placed.push({ x, y, r });
+    _layout.set(ev.id, y);
+  }
+}
+
+function _resolveY(x, r, ay, preferAbove, placed, pad) {
+  // Only test dots that can actually overlap horizontally
+  const nearby = placed.filter(p => Math.abs(p.x - x) < r + p.r + pad);
+
+  const STEP  = 3;           // px step when searching for a clear slot
+  const MIN_Y = H * 0.04;
+  const MAX_Y = H * 0.96;
+  const START = r + 8;       // minimum distance from axis centre to dot centre
+
+  // Try preferred side first, then the opposite
+  for (const dir of (preferAbove ? [-1, 1] : [1, -1])) {
+    for (let offset = START; offset < H * 0.92; offset += STEP) {
+      const y = ay + dir * offset;
+      if (y < MIN_Y || y > MAX_Y) break;
+
+      // Collision check: all nearby dots must be far enough away
+      const clear = nearby.every(p => {
+        const dx = x - p.x, dy = y - p.y;
+        const need = r + p.r + pad;
+        return dx * dx + dy * dy >= need * need;
+      });
+      if (clear) return y;
+    }
+  }
+  // Fallback — extremely rare
+  return ay + (preferAbove ? -1 : 1) * START;
+}
+
 function eventY(ev) {
-  const ay    = axisY();
-  const above = (stableHash(ev.id) & 1) === 0;
-  const span  = H * 0.22 * ev.imp;
-  const raw   = above ? ay - span - 6 : ay + span + 6;
-  return Math.max(H * 0.07, Math.min(H * 0.90, raw));
+  return _layout.has(ev.id) ? _layout.get(ev.id) : axisY() - H * 0.15;
 }
 
 // ═══════════════════════════════════════════════
@@ -1500,6 +1557,7 @@ function labelSet(evs) {
 // ═══════════════════════════════════════════════
 
 function render() {
+  computeLayout();   // resolve dot positions before any drawing
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = '#0d0d1a';
   ctx.fillRect(0, 0, W, H);
@@ -1698,6 +1756,7 @@ function formatYear(y) {
 const isTouchDevice = () => 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
 function hitTest(mx, my) {
+  computeLayout();   // ensure positions match what's drawn
   const evs    = visibleEvents();
   const sorted = [...evs].sort((a, b) => b.imp - a.imp);
   const pad    = isTouchDevice() ? 18 : 8;   // bigger tap zone on mobile
