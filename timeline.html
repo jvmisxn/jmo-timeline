@@ -1305,8 +1305,14 @@ function shapeToSVG(shape, color, sz = 12) {
 // ═══════════════════════════════════════════════
 
 const WORLD_BOUNDS = [[-90, -180], [90, 180]];
+// Calculate zoom so world fills container WIDTH exactly
+// At zoom z, world = 256*2^z px wide → z = log2(containerWidth/256)
+function mapWidthZoom() {
+  return Math.log2(document.getElementById('map').offsetWidth / 256);
+}
+
 const leafMap = L.map('map', {
-  center: [20, 10], zoom: 2,
+  center: [20, 0], zoom: mapWidthZoom(),
   zoomControl: false, attributionControl: false, scrollWheelZoom: true,
   worldCopyJump: false,
   maxBounds: WORLD_BOUNDS,
@@ -1318,11 +1324,10 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
   bounds: WORLD_BOUNDS,
 }).addTo(leafMap);
 
-// Fit world to container so no empty grey space on sides
 leafMap.whenReady(() => {
-  const z = leafMap.getBoundsZoom(WORLD_BOUNDS, false);
-  leafMap.setZoom(z, { animate: false });
+  const z = mapWidthZoom();
   leafMap.setMinZoom(z);
+  leafMap.setZoom(z, { animate: false });
 });
 
 let mapMarker = null;
@@ -2150,8 +2155,8 @@ window.addEventListener('resize', () => {
   resize();
   if (panel.classList.contains('open') && selectedEv) positionPopup(selectedEv);
   leafMap.invalidateSize();
-  // Re-fit world to new container size so no empty edges
-  const z = leafMap.getBoundsZoom(WORLD_BOUNDS, false);
+  // Re-fit world to new container width
+  const z = mapWidthZoom();
   leafMap.setMinZoom(z);
   if (leafMap.getZoom() < z) leafMap.setZoom(z, { animate: false });
   const hint = document.querySelector('.hint');
