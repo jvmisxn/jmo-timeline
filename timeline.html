@@ -1282,7 +1282,7 @@ function shapeToSVG(shape, color, sz = 12) {
 const WORLD_BOUNDS = [[-90, -180], [90, 180]];
 const leafMap = L.map('map', {
   center: [25, 15], zoom: 2,
-  zoomControl: true, attributionControl: false, scrollWheelZoom: false,
+  zoomControl: true, attributionControl: false, scrollWheelZoom: true,
   worldCopyJump: false,
   maxBounds: WORLD_BOUNDS,
   maxBoundsViscosity: 1.0,
