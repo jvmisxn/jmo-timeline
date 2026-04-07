@@ -112,7 +112,7 @@
       background:var(--surface); border-left:1px solid var(--border);
       display:flex; flex-direction:column;
       transform:translateX(var(--panel-w)); transition:transform .22s ease;
-      overflow:hidden; z-index:50; box-shadow:-4px 0 24px rgba(0,0,0,.45); }
+      overflow:hidden; z-index:1200; box-shadow:-4px 0 24px rgba(0,0,0,.45); }
     #panel.open { transform:translateX(0); }
 
     .ph { display:flex; align-items:flex-start; justify-content:space-between;
@@ -183,10 +183,93 @@
     ::-webkit-scrollbar-track { background:transparent; }
     ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
 
-    @media (max-width:600px) {
+    /* ── Map collapse toggle button ── */
+    .map-toggle-btn {
+      position:absolute; bottom:7px; right:8px; z-index:10;
+      background:rgba(13,13,26,.8); border:1px solid var(--border);
+      color:var(--muted); border-radius:5px; padding:3px 9px;
+      font-size:.62rem; cursor:pointer; transition:all .12s; white-space:nowrap;
+    }
+    .map-toggle-btn:hover { border-color:var(--accent); color:var(--text); }
+
+    /* ── Panel drag handle (mobile only) ── */
+    .panel-drag-handle {
+      display:none; width:40px; height:4px; border-radius:2px;
+      background:var(--border); margin:10px auto 2px; flex-shrink:0; cursor:grab;
+    }
+
+    /* ── Mobile legend toggle ── */
+    .legend-toggle-btn {
+      display:none; background:var(--surface2); border:1px solid var(--border);
+      color:var(--muted); border-radius:5px; padding:3px 9px; font-size:.67rem;
+      cursor:pointer; white-space:nowrap; margin-left:auto; flex-shrink:0;
+    }
+
+    /* ══════════════════════════════════════
+       MOBILE / TABLET  ≤ 768 px
+       ══════════════════════════════════════ */
+    @media (max-width:768px) {
       :root { --panel-w:100vw; }
+
+      /* Header – strip subtitle, compress */
+      header { padding:7px 12px; gap:8px; }
+      .header-title h1 { font-size:.92rem; }
+      .header-title p  { display:none; }
       .era-btns { display:none; }
-      #map { height:160px; }
+      .legend-toggle-btn { display:block; }
+
+      /* Scale bar */
+      .scale-bar { padding:3px 12px; font-size:.59rem; flex-wrap:wrap; gap:4px; }
+
+      /* Legend: collapsible */
+      .legend-bar { padding:4px 10px; gap:6px; }
+      .legend-items { flex-wrap:nowrap; }          /* keep on one scrollable line */
+      .legend-bar.mob-collapsed .legend-items { display:none; }
+      .legend-bar.mob-collapsed { padding:0 10px; }
+
+      /* Map */
+      #map { height:180px; }
+      #map.mob-collapsed { height:0; border-bottom:none; }
+      #mapResizeHandle { display:none; }           /* no drag-resize on touch */
+
+      /* Canvas hint */
+      .hint { font-size:.57rem; padding:3px 10px; bottom:6px; }
+
+      /* Panel → bottom sheet */
+      #panel {
+        position:absolute;
+        top:auto !important; bottom:0; left:0; right:0;
+        width:100% !important; height:64vh; min-height:200px;
+        transform:translateY(100%);
+        transition:transform .28s cubic-bezier(.32,.72,0,1);
+        border-left:none;
+        border-top:2px solid var(--border);
+        border-radius:18px 18px 0 0;
+        box-shadow:0 -6px 50px rgba(0,0,0,.65);
+      }
+      #panel.open { transform:translateY(0); }
+
+      /* Show drag handle */
+      .panel-drag-handle { display:block; }
+
+      /* Panel internals */
+      .ph  { padding:8px 14px 7px; }
+      .ph h2 { font-size:.88rem; }
+      .ph-filter { padding:5px 14px; }
+      .pb  { padding:10px 14px; gap:8px; }
+
+      /* Gallery thumbnails a bit smaller */
+      .gallery-img-wrap      { width:120px; }
+      .gallery-img-wrap img  { width:120px; height:75px; }
+
+      /* Tooltip: position above finger */
+      #tooltip { font-size:.8rem; }
+    }
+
+    /* Very small phones */
+    @media (max-width:400px) {
+      #panel { height:72vh; }
+      .header-title h1 { font-size:.82rem; }
     }
   </style>
 </head>
@@ -209,15 +292,17 @@
   <span id="scaleCount"></span>
 </div>
 
-<div class="legend-bar">
+<div class="legend-bar" id="legendBar">
   <span class="legend-label">Category:</span>
   <div class="legend-items" id="legendItems"></div>
+  <button class="legend-toggle-btn" id="legendToggleBtn">☰ Filter</button>
 </div>
 
 <div class="main">
   <div class="left-col">
     <div id="map">
       <div class="map-hint-overlay" id="mapHint">🗺 Click an event to see its location</div>
+      <button class="map-toggle-btn" id="mapToggleBtn">▾ Hide map</button>
     </div>
     <div id="mapResizeHandle" title="Drag to resize map"></div>
     <div class="canvas-area" id="canvasArea">
@@ -227,6 +312,7 @@
   </div>
 
   <div id="panel">
+    <div class="panel-drag-handle" id="panelDragHandle"></div>
     <div class="ph">
       <h2 id="panelTitle"></h2>
       <button class="ph-close" id="panelClose">✕</button>
@@ -1829,6 +1915,62 @@ canvas.addEventListener('touchmove', e => {
 canvas.addEventListener('touchend', () => { _touch = null; _pinch = null; });
 
 // ═══════════════════════════════════════════════
+//  MOBILE INTERACTIONS
+// ═══════════════════════════════════════════════
+
+// ── Map collapse / expand ──
+const mapToggleBtn = document.getElementById('mapToggleBtn');
+let mapCollapsed = false;
+mapToggleBtn.addEventListener('click', () => {
+  mapCollapsed = !mapCollapsed;
+  mapEl.classList.toggle('mob-collapsed', mapCollapsed);
+  mapToggleBtn.textContent = mapCollapsed ? '▴ Show map' : '▾ Hide map';
+  if (!mapCollapsed) leafMap.invalidateSize();
+  resize();
+});
+
+// ── Legend collapse / expand (mobile) ──
+const legendBar       = document.getElementById('legendBar');
+const legendToggleBtn = document.getElementById('legendToggleBtn');
+legendToggleBtn.addEventListener('click', () => {
+  legendBar.classList.toggle('mob-collapsed');
+  legendToggleBtn.textContent = legendBar.classList.contains('mob-collapsed') ? '☰ Filter' : '✕ Close';
+});
+
+// ── Panel swipe-down to close (mobile) ──
+const panelDragHandle = document.getElementById('panelDragHandle');
+let swipeStartY = null, swipeCurrentY = 0;
+
+panelDragHandle.addEventListener('touchstart', e => {
+  swipeStartY    = e.touches[0].clientY;
+  swipeCurrentY  = swipeStartY;
+  panel.style.transition = 'none';
+}, { passive: true });
+
+panelDragHandle.addEventListener('touchmove', e => {
+  if (swipeStartY === null) return;
+  const dy = e.touches[0].clientY - swipeStartY;
+  swipeCurrentY = e.touches[0].clientY;
+  if (dy > 0) panel.style.transform = `translateY(${dy}px)`;
+}, { passive: true });
+
+panelDragHandle.addEventListener('touchend', () => {
+  if (swipeStartY === null) return;
+  panel.style.transition = '';
+  panel.style.transform  = '';
+  const dy = swipeCurrentY - swipeStartY;
+  if (dy > 70) closePanel();
+  swipeStartY = null;
+}, { passive: true });
+
+// ── Canvas hint: simpler text on mobile ──
+(function () {
+  const hint = document.querySelector('.hint');
+  if (hint && window.matchMedia('(max-width:768px)').matches)
+    hint.textContent = '👆 Pinch to zoom · Swipe to pan · Tap events';
+})();
+
+// ═══════════════════════════════════════════════
 //  BUILD UI
 // ═══════════════════════════════════════════════
 
@@ -1887,7 +2029,14 @@ function resize() {
   clampScroll(); updateScaleBar(); scheduleRender();
 }
 
-window.addEventListener('resize', () => { resize(); leafMap.invalidateSize(); });
+window.addEventListener('resize', () => {
+  resize();
+  leafMap.invalidateSize();
+  const hint = document.querySelector('.hint');
+  if (hint) hint.textContent = window.innerWidth <= 768
+    ? '👆 Pinch to zoom · Swipe to pan · Tap events'
+    : '🖱 Scroll to zoom · Drag to pan · Click events for details';
+});
 buildUI();
 resize();
 </script>
