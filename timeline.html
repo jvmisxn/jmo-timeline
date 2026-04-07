@@ -8,226 +8,156 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --bg:       #0d0d1a;
-      --surface:  #16162a;
-      --surface2: #1e1e38;
-      --border:   #2c2c4e;
-      --text:     #e6e6f0;
-      --muted:    #7a7a9a;
-      --accent:   #7c83ff;
-      --panel-w:  380px;
-      --map-h:    240px;
+      --bg:      #0d0d1a; --surface: #16162a; --surface2: #1e1e38;
+      --border:  #2c2c4e; --text:    #e6e6f0; --muted:   #7a7a9a;
+      --accent:  #7c83ff; --panel-w: 380px;
     }
+    html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--text);
+      font-family:'Segoe UI',system-ui,-apple-system,sans-serif; user-select:none; }
+    body { display:flex; flex-direction:column; }
 
-    html, body {
-      height: 100%;
-      overflow: hidden;
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      user-select: none;
-    }
-    body { display: flex; flex-direction: column; }
+    /* ── Header ── */
+    header { display:flex; align-items:center; gap:12px; padding:8px 16px;
+      background:var(--surface); border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
+    .header-title h1 { font-size:1.05rem; font-weight:700; white-space:nowrap; }
+    .header-title p  { font-size:.63rem; color:var(--muted); margin-top:1px; }
+    .era-btns { display:flex; gap:4px; flex-wrap:wrap; }
+    .era-btn { background:var(--surface2); border:1px solid var(--border); color:var(--muted);
+      border-radius:5px; padding:3px 9px; font-size:.67rem; cursor:pointer;
+      transition:all .12s; white-space:nowrap; }
+    .era-btn:hover { border-color:var(--accent); color:var(--text); }
+    .zoom-btns { display:flex; gap:3px; margin-left:auto; }
+    .zoom-btn { width:28px; height:26px; background:var(--surface2); border:1px solid var(--border);
+      color:var(--text); border-radius:5px; font-size:1rem; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; transition:background .12s; }
+    .zoom-btn:hover { background:var(--accent); border-color:var(--accent); }
 
-    /* ── Header ───────────────────────────────── */
-    header {
-      display: flex; align-items: center; gap: 14px;
-      padding: 9px 18px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0; flex-wrap: wrap;
-    }
-    .header-title h1 { font-size: 1.05rem; font-weight: 700; white-space: nowrap; }
-    .header-title p  { font-size: 0.64rem; color: var(--muted); margin-top: 1px; }
-    .era-btns { display: flex; gap: 4px; flex-wrap: wrap; }
-    .era-btn {
-      background: var(--surface2); border: 1px solid var(--border);
-      color: var(--muted); border-radius: 5px; padding: 3px 10px;
-      font-size: 0.68rem; cursor: pointer; transition: all 0.12s; white-space: nowrap;
-    }
-    .era-btn:hover { border-color: var(--accent); color: var(--text); }
-    .zoom-btns { display: flex; gap: 3px; margin-left: auto; }
-    .zoom-btn {
-      width: 28px; height: 26px;
-      background: var(--surface2); border: 1px solid var(--border);
-      color: var(--text); border-radius: 5px; font-size: 1rem; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      transition: background 0.12s;
-    }
-    .zoom-btn:hover { background: var(--accent); border-color: var(--accent); }
+    /* ── Scale bar ── */
+    .scale-bar { display:flex; align-items:center; justify-content:space-between;
+      padding:3px 16px; background:var(--surface2); border-bottom:1px solid var(--border);
+      font-size:.64rem; color:var(--muted); flex-shrink:0; gap:12px; }
+    .scale-bar strong { color:var(--accent); }
 
-    /* ── Scale info bar ───────────────────────── */
-    .scale-bar {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 4px 18px;
-      background: var(--surface2); border-bottom: 1px solid var(--border);
-      font-size: 0.65rem; color: var(--muted); flex-shrink: 0; gap: 12px;
-    }
-    .scale-bar strong { color: var(--accent); }
+    /* ── Legend ── */
+    .legend-bar { display:flex; align-items:center; gap:10px; padding:4px 16px;
+      background:var(--surface2); border-bottom:1px solid var(--border);
+      overflow-x:auto; flex-shrink:0; }
+    .legend-label { font-size:.61rem; color:var(--muted); text-transform:uppercase;
+      letter-spacing:.07em; white-space:nowrap; }
+    .legend-items { display:flex; gap:5px; flex-wrap:wrap; }
+    .legend-item { display:flex; align-items:center; gap:5px; font-size:.64rem;
+      color:var(--muted); cursor:pointer; padding:2px 7px;
+      border-radius:3px; border:1px solid transparent; transition:all .12s; white-space:nowrap; }
+    .legend-item:hover { border-color:var(--border); color:var(--text); }
+    .legend-item.active { border-color:currentColor; color:var(--text); }
+    .legend-item svg { flex-shrink:0; }
 
-    /* ── Category legend ──────────────────────── */
-    .legend-bar {
-      display: flex; align-items: center; gap: 10px;
-      padding: 4px 18px;
-      background: var(--surface2); border-bottom: 1px solid var(--border);
-      overflow-x: auto; flex-shrink: 0;
-    }
-    .legend-label { font-size: 0.62rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; white-space: nowrap; }
-    .legend-items { display: flex; gap: 6px; flex-wrap: wrap; }
-    .legend-item {
-      display: flex; align-items: center; gap: 4px;
-      font-size: 0.64rem; color: var(--muted); cursor: pointer;
-      padding: 2px 7px; border-radius: 3px; border: 1px solid transparent;
-      transition: all 0.12s; white-space: nowrap;
-    }
-    .legend-item:hover { border-color: var(--border); color: var(--text); }
-    .legend-item.active { border-color: currentColor; color: var(--text); }
-    .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    /* ── Main ── */
+    .main { flex:1; display:flex; overflow:hidden; position:relative; min-height:0; }
+    .left-col { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; }
 
-    /* ── Main ─────────────────────────────────── */
-    .main {
-      flex: 1; display: flex; overflow: hidden;
-      position: relative; min-height: 0;
-    }
-
-    .left-col {
-      flex: 1; display: flex; flex-direction: column;
-      overflow: hidden; min-width: 0;
-    }
-
-    /* ── Map ──────────────────────────────────── */
-    #map {
-      height: var(--map-h);
-      flex-shrink: 0;
-      border-bottom: 2px solid var(--border);
-      background: #0a0a14;
-      position: relative;
-    }
-    .map-hint-overlay {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(13,13,26,0.72);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 6px 14px;
-      font-size: 0.68rem;
-      color: var(--muted);
-      pointer-events: none;
-      z-index: 500;
-      white-space: nowrap;
-      transition: opacity 0.3s;
-    }
-    .map-hint-overlay.hidden { opacity: 0; }
-
-    /* Leaflet dark tweaks */
-    .leaflet-container { background: #0a0a14 !important; }
-    .leaflet-control-attribution { display: none !important; }
-    .leaflet-bar a {
-      background: var(--surface2) !important;
-      border-color: var(--border) !important;
-      color: var(--text) !important;
-    }
-    .leaflet-bar a:hover { background: var(--surface) !important; }
+    /* ── Map ── */
+    #map { height:220px; flex-shrink:0; background:#0a0a14; position:relative; }
+    .map-hint-overlay { position:absolute; top:50%; left:50%;
+      transform:translate(-50%,-50%);
+      background:rgba(13,13,26,.75); border:1px solid var(--border);
+      border-radius:8px; padding:6px 14px; font-size:.67rem; color:var(--muted);
+      pointer-events:none; z-index:500; white-space:nowrap; transition:opacity .3s; }
+    .map-hint-overlay.hidden { opacity:0; }
+    .leaflet-container { background:#0a0a14 !important; }
+    .leaflet-control-attribution { display:none !important; }
+    .leaflet-bar a { background:var(--surface2) !important; border-color:var(--border) !important;
+      color:var(--text) !important; }
+    .leaflet-bar a:hover { background:var(--surface) !important; }
 
     /* Pulsing marker */
-    .hist-marker {
-      width: 14px; height: 14px;
-      border-radius: 50%;
-      position: relative;
-    }
-    .hist-marker::after {
-      content: '';
-      position: absolute;
-      top: -5px; left: -5px;
-      width: 24px; height: 24px;
-      border-radius: 50%;
-      background: inherit;
-      opacity: 0.45;
-      animation: pulse-ring 1.5s ease-out infinite;
-    }
+    .hist-marker { width:14px; height:14px; border-radius:50%; position:relative; }
+    .hist-marker::after { content:''; position:absolute; top:-5px; left:-5px;
+      width:24px; height:24px; border-radius:50%; background:inherit; opacity:.45;
+      animation:pulse-ring 1.5s ease-out infinite; }
     @keyframes pulse-ring {
-      0%   { transform: scale(0.8); opacity: 0.45; }
-      100% { transform: scale(2.5); opacity: 0; }
+      0%   { transform:scale(.8);  opacity:.45; }
+      100% { transform:scale(2.4); opacity:0; }
     }
 
-    /* ── Canvas ───────────────────────────────── */
-    .canvas-area {
-      flex: 1; position: relative; overflow: hidden; min-width: 0; min-height: 0;
-    }
-    #c { display: block; cursor: grab; }
+    /* ── Map resize handle ── */
+    #mapResizeHandle { height:7px; flex-shrink:0; background:var(--border);
+      cursor:ns-resize; display:flex; align-items:center; justify-content:center;
+      transition:background .15s; position:relative; }
+    #mapResizeHandle:hover, #mapResizeHandle.dragging { background:var(--accent); }
+    #mapResizeHandle::after { content:''; width:32px; height:2px;
+      border-radius:2px; background:rgba(255,255,255,.25); pointer-events:none; }
 
-    /* ── Hint ─────────────────────────────────── */
-    .hint {
-      position: absolute; bottom: 10px; left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,.55);
-      border: 1px solid var(--border); border-radius: 20px;
-      padding: 4px 14px; font-size: 0.63rem; color: var(--muted);
-      pointer-events: none; white-space: nowrap;
-    }
+    /* ── Canvas ── */
+    .canvas-area { flex:1; position:relative; overflow:hidden; min-width:0; min-height:0; }
+    #c { display:block; cursor:grab; }
+    .hint { position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
+      background:rgba(0,0,0,.55); border:1px solid var(--border); border-radius:20px;
+      padding:4px 14px; font-size:.62rem; color:var(--muted);
+      pointer-events:none; white-space:nowrap; }
 
-    /* ── Tooltip ──────────────────────────────── */
-    #tooltip {
-      position: fixed; z-index: 200;
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 8px; padding: 9px 13px; max-width: 240px;
-      box-shadow: 0 6px 24px rgba(0,0,0,.55);
-      pointer-events: none; opacity: 0; transition: opacity .1s;
-    }
-    #tooltip.show { opacity: 1; }
-    #tooltip h4 { font-size: .8rem; font-weight: 600; margin-bottom: 2px; }
-    #tooltip .tt-yr  { font-size: .66rem; color: var(--muted); margin-bottom: 3px; }
-    #tooltip .tt-desc { font-size: .69rem; color: var(--muted); line-height: 1.4; }
+    /* ── Tooltip ── */
+    #tooltip { position:fixed; z-index:200; background:var(--surface);
+      border:1px solid var(--border); border-radius:8px; padding:9px 13px;
+      max-width:240px; box-shadow:0 6px 24px rgba(0,0,0,.55);
+      pointer-events:none; opacity:0; transition:opacity .1s; }
+    #tooltip.show { opacity:1; }
+    #tooltip h4 { font-size:.8rem; font-weight:600; margin-bottom:2px; }
+    #tooltip .tt-yr   { font-size:.65rem; color:var(--muted); margin-bottom:3px; }
+    #tooltip .tt-desc { font-size:.68rem; color:var(--muted); line-height:1.4; }
 
-    /* ── Detail Panel ─────────────────────────── */
-    #panel {
-      position: absolute;
-      right: 0; top: 0; bottom: 0;
-      width: var(--panel-w);
-      background: var(--surface); border-left: 1px solid var(--border);
-      display: flex; flex-direction: column;
-      transform: translateX(var(--panel-w));
-      transition: transform .22s ease;
-      overflow: hidden;
-      z-index: 50;
-      box-shadow: -4px 0 24px rgba(0,0,0,.45);
-    }
-    #panel.open { transform: translateX(0); }
-    .ph {
-      display: flex; align-items: flex-start; justify-content: space-between;
-      padding: 14px 16px 10px; border-bottom: 1px solid var(--border);
-    }
-    .ph h2 { font-size: .95rem; font-weight: 700; line-height: 1.3; flex: 1; }
-    .ph-close { background: none; border: none; color: var(--muted); font-size: 1.1rem; cursor: pointer; padding: 0 0 0 10px; line-height: 1; }
-    .ph-close:hover { color: var(--text); }
-    .pb { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
-    .pmeta { display: flex; flex-wrap: wrap; gap: 6px; }
-    .mtag { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 2px 9px; font-size: .63rem; color: var(--muted); }
-    .pdesc { font-size: .8rem; line-height: 1.65; color: var(--text); }
-    .pdetail { font-size: .74rem; line-height: 1.7; color: var(--muted); }
-    .psect { font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 5px; }
-    .map-loc-tag { font-size: .64rem; color: var(--accent); display: flex; align-items: center; gap: 4px; margin-top: -4px; }
-    .rel-list { display: flex; flex-direction: column; gap: 5px; }
-    .rel-item {
-      background: var(--surface2); border: 1px solid var(--border);
-      border-radius: 5px; padding: 7px 10px; cursor: pointer;
-      display: flex; align-items: center; gap: 8px; transition: border-color .12s;
-    }
-    .rel-item:hover { border-color: var(--accent); }
-    .rel-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-    .rel-name { font-size: .72rem; font-weight: 500; }
-    .rel-yr   { font-size: .62rem; color: var(--muted); }
+    /* ── Panel ── */
+    #panel { position:absolute; right:0; top:0; bottom:0; width:var(--panel-w);
+      background:var(--surface); border-left:1px solid var(--border);
+      display:flex; flex-direction:column;
+      transform:translateX(var(--panel-w)); transition:transform .22s ease;
+      overflow:hidden; z-index:50; box-shadow:-4px 0 24px rgba(0,0,0,.45); }
+    #panel.open { transform:translateX(0); }
 
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .ph { display:flex; align-items:flex-start; justify-content:space-between;
+      padding:13px 15px 9px; border-bottom:1px solid var(--border); }
+    .ph h2 { font-size:.93rem; font-weight:700; line-height:1.3; flex:1; }
+    .ph-close { background:none; border:none; color:var(--muted); font-size:1.1rem;
+      cursor:pointer; padding:0 0 0 10px; line-height:1; }
+    .ph-close:hover { color:var(--text); }
 
-    @media (max-width: 600px) {
-      :root { --panel-w: 100vw; --map-h: 180px; }
-      .era-btns { display: none; }
+    /* Related filter button */
+    .ph-filter { padding:7px 15px; border-bottom:1px solid var(--border);
+      display:flex; align-items:center; gap:8px; }
+    .filter-related-btn { font-size:.64rem; background:var(--surface2);
+      border:1px solid var(--border); color:var(--muted); border-radius:12px;
+      padding:3px 11px; cursor:pointer; transition:all .15s; }
+    .filter-related-btn:hover { border-color:var(--accent); color:var(--text); }
+    .filter-related-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+    .filter-note { font-size:.59rem; color:var(--muted); }
+
+    .pb { flex:1; overflow-y:auto; padding:13px 15px; display:flex; flex-direction:column; gap:11px; }
+    .pmeta { display:flex; flex-wrap:wrap; gap:6px; }
+    .mtag { background:var(--surface2); border:1px solid var(--border);
+      border-radius:20px; padding:2px 9px; font-size:.62rem; color:var(--muted); }
+    .pdesc   { font-size:.8rem;  line-height:1.65; color:var(--text); }
+    .pdetail { font-size:.74rem; line-height:1.7;  color:var(--muted); }
+    .psect   { font-size:.61rem; font-weight:700; text-transform:uppercase;
+      letter-spacing:.08em; color:var(--muted); margin-bottom:5px; }
+    .map-loc-tag { font-size:.63rem; color:var(--accent); display:flex; align-items:center; gap:4px; }
+    .span-tag { font-size:.63rem; color:var(--muted); display:flex; align-items:center; gap:4px; }
+    .rel-list { display:flex; flex-direction:column; gap:5px; }
+    .rel-item { background:var(--surface2); border:1px solid var(--border);
+      border-radius:5px; padding:7px 10px; cursor:pointer;
+      display:flex; align-items:center; gap:8px; transition:border-color .12s; }
+    .rel-item:hover { border-color:var(--accent); }
+    .rel-name { font-size:.71rem; font-weight:500; }
+    .rel-yr   { font-size:.61rem; color:var(--muted); }
+
+    ::-webkit-scrollbar { width:5px; height:5px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+    @media (max-width:600px) {
+      :root { --panel-w:100vw; }
+      .era-btns { display:none; }
+      #map { height:160px; }
     }
   </style>
 </head>
@@ -258,11 +188,12 @@
 <div class="main">
   <div class="left-col">
     <div id="map">
-      <div class="map-hint-overlay" id="mapHint">🗺 Click an event on the timeline to see its location</div>
+      <div class="map-hint-overlay" id="mapHint">🗺 Click an event to see its location</div>
     </div>
+    <div id="mapResizeHandle" title="Drag to resize map"></div>
     <div class="canvas-area" id="canvasArea">
       <canvas id="c"></canvas>
-      <div class="hint">🖱 Scroll to zoom · Left or middle drag to pan · Click events for details</div>
+      <div class="hint">🖱 Scroll to zoom · Drag to pan · Click events for details</div>
     </div>
   </div>
 
@@ -271,11 +202,16 @@
       <h2 id="panelTitle"></h2>
       <button class="ph-close" id="panelClose">✕</button>
     </div>
+    <div class="ph-filter">
+      <button id="btnFilterRelated" class="filter-related-btn">🔗 Show related only</button>
+      <span class="filter-note" id="filterNote"></span>
+    </div>
     <div class="pb">
-      <div class="pmeta"   id="panelMeta"></div>
+      <div class="pmeta" id="panelMeta"></div>
       <div class="map-loc-tag" id="panelLoc"></div>
-      <p class="pdesc"     id="panelDesc"></p>
-      <p class="pdetail"   id="panelDetail"></p>
+      <div class="span-tag"    id="panelSpan"></div>
+      <p class="pdesc"         id="panelDesc"></p>
+      <p class="pdetail"       id="panelDetail"></p>
       <div id="panelRel"></div>
     </div>
   </div>
@@ -288,657 +224,865 @@
 </div>
 
 <script>
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 //  DATA
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 
 const MIN_YEAR = -300000, MAX_YEAR = 2026;
 
 const CATS = {
-  biology:     { label: 'Biology & Evolution',  color: '#a0742a' },
-  society:     { label: 'Society & Culture',    color: '#2e9e6a' },
-  politics:    { label: 'Politics & Empires',   color: '#c0392b' },
-  technology:  { label: 'Science & Technology', color: '#2980b9' },
-  religion:    { label: 'Religion & Ideas',     color: '#9b59b6' },
-  exploration: { label: 'Exploration',          color: '#e67e22' },
-  conflict:    { label: 'Wars & Conflict',      color: '#e74c3c' },
-  environment: { label: 'Environment',          color: '#27ae60' },
+  biology:     { label:'Biology & Evolution',  color:'#c8862a' },
+  society:     { label:'Society & Culture',    color:'#2e9e6a' },
+  politics:    { label:'Politics & Empires',   color:'#c0392b' },
+  technology:  { label:'Science & Technology', color:'#2980b9' },
+  religion:    { label:'Religion & Ideas',     color:'#9b59b6' },
+  exploration: { label:'Exploration',          color:'#e67e22' },
+  conflict:    { label:'Wars & Conflict',      color:'#e74c3c' },
+  environment: { label:'Environment',          color:'#27ae60' },
 };
 
-// Minimum scale (px/year) at which each tier becomes visible
+// Shape per category — drawn on canvas and in legend
+const CAT_SHAPE = {
+  biology:     'diamond',
+  society:     'square',
+  politics:    'star',
+  technology:  'triangle',
+  religion:    'circle',
+  exploration: 'pentagon',
+  conflict:    'triangle-down',
+  environment: 'hexagon',
+};
+
 const TIER_SCALE = [0, 0.010, 0.080, 0.70, 4.0, 18.0];
 
 const ERA_ZONES = [
-  { label:'Prehistoric',   start:-300000, end:-10000, color:'rgba(139,105,20,.07)' },
-  { label:'Ancient',       start:-10000,  end:500,    color:'rgba(218,165,32,.055)' },
-  { label:'Medieval',      start:500,     end:1500,   color:'rgba(90,50,180,.07)' },
-  { label:'Early Modern',  start:1500,    end:1800,   color:'rgba(30,140,80,.065)' },
-  { label:'Modern',        start:1800,    end:1945,   color:'rgba(41,128,185,.065)' },
-  { label:'Contemporary',  start:1945,    end:2026,   color:'rgba(200,60,50,.065)' },
+  { label:'Prehistoric',  start:-300000, end:-10000, color:'rgba(139,105,20,.07)' },
+  { label:'Ancient',      start:-10000,  end:500,    color:'rgba(218,165,32,.055)' },
+  { label:'Medieval',     start:500,     end:1500,   color:'rgba(90,50,180,.07)' },
+  { label:'Early Modern', start:1500,    end:1800,   color:'rgba(30,140,80,.065)' },
+  { label:'Modern',       start:1800,    end:1945,   color:'rgba(41,128,185,.065)' },
+  { label:'Contemporary', start:1945,    end:2026,   color:'rgba(200,60,50,.065)' },
 ];
 
-// loc: [lat, lng, mapZoom, 'Location Name'] or null for global events
+// span:[start,end] draws a colored band showing how long a period/empire lasted
+// loc:[lat,lng,zoom,'Name'] for the map
 const EVENTS = [
 
-  // ── TIER 0 · cosmic anchors ────────────────────────────────────────────
+  // ── TIER 0 ──────────────────────────────────────────────────────────
   { id:'e_human_emerge', name:'Human Origins',           year:-200000, minTier:0, cat:'biology',    imp:1.0,
     loc:[9.02,38.74,5,'East Africa'],
     desc:'Homo sapiens emerge in Africa — the first anatomically modern humans.',
-    detail:'Fossil evidence from Jebel Irhoud (Morocco, ~315,000 BP) and Omo Kibish (Ethiopia) places Homo sapiens in Africa. These early humans had larger brains, flatter faces, and more complex social behaviour than earlier hominins.' },
+    detail:'Fossil evidence from Jebel Irhoud (Morocco, ~315,000 BP) and Omo Kibish (Ethiopia). These early humans had larger brains, flatter faces, and more complex social behaviour than earlier hominins.' },
 
-  { id:'e_agri',         name:'Agricultural Revolution', year:-10000,  minTier:0, cat:'society',    imp:1.0,
+  { id:'e_agri', name:'Agricultural Revolution', year:-10000, minTier:0, cat:'society', imp:1.0,
     loc:[36.5,38.5,5,'Fertile Crescent'],
-    desc:'Humans shift from nomadic hunter-gathering to settled farming.',
-    detail:'The Neolithic Revolution began independently in multiple regions: the Fertile Crescent (wheat, barley), China (rice, millet), Mesoamerica (maize), and New Guinea (taro). This shift enabled population growth, food surpluses, and eventually civilisation.' },
+    desc:'Humans shift from hunter-gathering to settled farming.',
+    detail:'The Neolithic Revolution began independently in multiple regions: the Fertile Crescent (wheat, barley), China (rice, millet), Mesoamerica (maize), New Guinea (taro). Enabled population growth, food surpluses, and eventually civilisation.' },
 
-  { id:'e_writing',      name:'Writing Invented',        year:-3200,   minTier:0, cat:'society',    imp:1.0,
+  { id:'e_writing', name:'Writing Invented', year:-3200, minTier:0, cat:'society', imp:1.0,
     loc:[31.32,45.64,8,'Uruk, Iraq'],
     desc:"Cuneiform script — humanity's first writing system — developed in Sumer.",
-    detail:"Writing emerged independently in Sumer (cuneiform, ~3200 BCE), Egypt (hieroglyphs, ~3100 BCE), China (~1200 BCE) and Mesoamerica (~900 BCE). The Sumerian system began as pictographic accounting and evolved into abstract phonetic symbols." },
+    detail:"Writing emerged in Sumer (~3200 BCE), Egypt (~3100 BCE), China (~1200 BCE) and Mesoamerica (~900 BCE). The Sumerian system began as pictographic accounting and evolved into abstract phonetic symbols." },
 
-  { id:'e_industrial',   name:'Industrial Revolution',   year:1760,    minTier:0, cat:'technology', imp:1.0,
+  { id:'e_industrial', name:'Industrial Revolution', year:1760, minTier:0, cat:'technology', imp:1.0,
+    span:[1760,1840],
     loc:[52.48,-1.89,7,'Birmingham, England'],
     desc:'Steam power transforms manufacturing, transport, and daily life.',
-    detail:"Beginning in Britain, the Industrial Revolution mechanised production using coal and steam. It spawned factories, railways, and mass urbanisation, triggering unprecedented economic growth while also causing severe labour exploitation and pollution." },
+    detail:"Beginning in Britain, the Industrial Revolution mechanised production using coal and steam. It spawned factories, railways, and mass urbanisation, triggering unprecedented growth while causing severe labour exploitation and pollution." },
 
-  { id:'e_digital',      name:'Digital Revolution',      year:1975,    minTier:0, cat:'technology', imp:1.0,
+  { id:'e_digital', name:'Digital Revolution', year:1975, minTier:0, cat:'technology', imp:1.0,
+    span:[1975,2026],
     loc:[37.39,-122.08,9,'Silicon Valley, USA'],
     desc:'Personal computers and the internet reshape civilisation.',
-    detail:"The convergence of the microprocessor, personal computer, and internet created the Information Age. From the Altair 8800 (1975) and Apple II (1977) to the World Wide Web (1989) and smartphones (2007), digital technology restructured economies, communication, and knowledge." },
+    detail:"From the Altair 8800 (1975) and Apple II (1977) to the World Wide Web (1989) and smartphones (2007), digital technology restructured economies, communication, and knowledge." },
 
-  // ── TIER 1 · prehistoric ──────────────────────────────────────────────
-  { id:'e_fire',         name:'Control of Fire',         year:-280000, minTier:1, cat:'biology',    imp:0.95,
+  // ── TIER 1 ──────────────────────────────────────────────────────────
+  { id:'e_fire', name:'Control of Fire', year:-280000, minTier:1, cat:'biology', imp:0.95,
     loc:[-27.7,23.6,5,'Wonderwerk Cave, South Africa'],
     desc:'Early humans learn to control fire — cooking, warmth, and social life.',
-    detail:'Evidence from Wonderwerk Cave, South Africa, suggests fire use ~1 million years ago. By 280,000 BCE, controlled fire was widespread among archaic Homo sapiens. Cooking increased caloric efficiency, enabling larger brains; hearths became centres of social life.' },
+    detail:'Evidence from Wonderwerk Cave, South Africa, suggests fire use ~1 million years ago. Cooking increased caloric efficiency, enabling larger brains; hearths became centres of social life.' },
 
-  { id:'e_language',     name:'Language Emerges',        year:-100000, minTier:1, cat:'society',    imp:0.95,
+  { id:'e_language', name:'Language Emerges', year:-100000, minTier:1, cat:'society', imp:0.95,
     loc:null,
     desc:'Complex symbolic language emerges among modern humans.',
-    detail:'Evidence of symbolic thought — ochre use, shell beads, engraved ochre — suggests complex language existed by 100,000 BCE. Language transformed human cooperation, cultural transmission, and long-term planning: the cognitive leap that made everything else possible.' },
+    detail:'Evidence of symbolic thought — ochre use, shell beads, engraved ochre — suggests complex language existed by 100,000 BCE. The cognitive leap that made everything else possible.' },
 
-  { id:'e_ooa',          name:'Out of Africa Migration', year:-70000,  minTier:1, cat:'biology',    imp:0.9,
+  { id:'e_ooa', name:'Out of Africa Migration', year:-70000, minTier:1, cat:'biology', imp:0.9,
     loc:[11.8,42.0,5,'Horn of Africa'],
     desc:'Homo sapiens leave Africa and spread across the globe.',
-    detail:'Around 70,000 BCE, a small group — perhaps a few hundred individuals — left Africa via the Arabian Peninsula. Their descendants spread across Asia, Australia (by ~65,000 BCE), Europe (~45,000 BCE), and the Americas (~15,000 BCE).' },
+    detail:'Around 70,000 BCE, a small group left Africa via the Arabian Peninsula. Their descendants spread across Asia, Australia (by ~65,000 BCE), Europe (~45,000 BCE), and the Americas (~15,000 BCE).' },
 
-  { id:'e_cave_art',     name:'Cave Art & Symbolism',    year:-40000,  minTier:1, cat:'society',    imp:0.85,
+  { id:'e_cave_art', name:'Cave Art & Symbolism', year:-40000, minTier:1, cat:'society', imp:0.85,
     loc:[44.4,5.9,9,'Chauvet Cave, France'],
     desc:'Humans create figurative art — the oldest known symbolic expression.',
-    detail:"Chauvet Cave (France, ~36,000 BCE) and Sulawesi (Indonesia, ~45,500 BCE) contain the world's oldest known figurative art. Cave paintings, Venus figurines, and bone flutes reveal fully modern cognitive capacities — abstract thought, shared mythology, aesthetic sense." },
+    detail:"Chauvet Cave (France, ~36,000 BCE) and Sulawesi (Indonesia, ~45,500 BCE) contain the world's oldest known figurative art. Reveals fully modern cognitive capacities — abstract thought, shared mythology, aesthetic sense." },
 
-  { id:'e_americas',     name:'Americas First Settled',  year:-15000,  minTier:1, cat:'biology',    imp:0.85,
+  { id:'e_americas', name:'Americas First Settled', year:-15000, minTier:1, cat:'biology', imp:0.85,
     loc:[65.7,-168.5,4,'Beringia / Bering Strait'],
     desc:'Humans cross from Siberia into the Americas via the Bering land bridge.',
-    detail:'During the Last Glacial Maximum, lower sea levels exposed Beringia. Hunter-gatherer bands spread rapidly through North and South America, reaching Patagonia by ~12,500 BCE — one of the fastest colonisations of a continent in human history.' },
+    detail:'During the Last Glacial Maximum, lower sea levels exposed Beringia. Hunter-gatherer bands spread rapidly through North and South America, reaching Patagonia by ~12,500 BCE.' },
 
-  { id:'e_megafauna',    name:'Megafauna Extinction',    year:-12000,  minTier:1, cat:'environment', imp:0.8,
+  { id:'e_megafauna', name:'Megafauna Extinction', year:-12000, minTier:1, cat:'environment', imp:0.8,
     loc:null,
     desc:'Ice Age giants — mammoths, mastodons, giant sloths — go extinct.',
-    detail:'A combination of human overhunting and rapid climate change at the end of the last Ice Age caused the extinction of most large mammals worldwide. This dramatically reshaped ecosystems and eliminated the animals humans had co-evolved alongside for millennia.' },
+    detail:'A combination of human overhunting and rapid climate change at the end of the last Ice Age caused the extinction of most large mammals worldwide.' },
 
-  // ── TIER 2 · ancient world ────────────────────────────────────────────
-  { id:'e_pottery',      name:'Pottery Spreads',         year:-9500,   minTier:2, cat:'technology', imp:0.75,
+  // ── TIER 2 ──────────────────────────────────────────────────────────
+  { id:'e_pottery', name:'Pottery Spreads', year:-9500, minTier:2, cat:'technology', imp:0.75,
     loc:[28.3,116.9,6,'Jiangxi, China'],
     desc:'Pottery enables food storage, fermentation, and new cooking techniques.',
-    detail:"The oldest known pottery is from Xianrendong Cave, China (~18,000 BCE), but widespread adoption came with the Neolithic (~9,500 BCE). Pottery enabled long-term food storage and fermentation. The potter's wheel (~3500 BCE) later revolutionised production scale." },
+    detail:"The oldest known pottery is from Xianrendong Cave, China (~18,000 BCE), but widespread adoption came with the Neolithic (~9,500 BCE). The potter's wheel (~3500 BCE) later revolutionised production scale." },
 
-  { id:'e_copper',       name:'Copper Age',              year:-5000,   minTier:2, cat:'technology', imp:0.8,
+  { id:'e_copper', name:'Copper Age', year:-5000, minTier:2, cat:'technology', imp:0.8,
     loc:[42.0,25.0,5,'Balkans / Middle East'],
     desc:'Humans begin smelting copper — the first systematic use of metal.',
-    detail:'Copper smelting developed in the Middle East and Balkans around 5000 BCE. Though too soft for most tools, copper was the first metal systematically worked by humans, laying the groundwork for bronze metallurgy that followed.' },
+    detail:'Copper smelting developed in the Middle East and Balkans around 5000 BCE, laying the groundwork for bronze metallurgy that followed.' },
 
-  { id:'e_wheel',        name:'Wheel Invented',          year:-3500,   minTier:2, cat:'technology', imp:0.9,
+  { id:'e_wheel', name:'Wheel Invented', year:-3500, minTier:2, cat:'technology', imp:0.9,
     loc:[32.5,45.3,7,'Mesopotamia, Iraq'],
     desc:'The wheel revolutionises transport and pottery production.',
-    detail:"The earliest known wheels were potter's wheels (~3500 BCE, Mesopotamia). Wheeled vehicles followed, and combined with draft animals, transformed long-distance trade and warfare. One of the most consequential mechanical inventions in human history." },
+    detail:"The earliest known wheels were potter's wheels (~3500 BCE, Mesopotamia). Combined with draft animals, transformed long-distance trade and warfare." },
 
-  { id:'e_uruk',         name:'First Cities',            year:-3500,   minTier:2, cat:'society',    imp:0.95,
+  { id:'e_uruk', name:'First Cities', year:-3500, minTier:2, cat:'society', imp:0.95,
     loc:[31.32,45.64,9,'Uruk, Iraq'],
-    desc:"Uruk — the world's first major city — reaches a population of 50,000+.",
-    detail:"The Sumerian city of Uruk grew to 50,000–80,000 inhabitants by 3200 BCE, fed by irrigation agriculture. It featured monumental temples (ziggurats), specialised artisans, long-distance trade networks, and the first writing system — the template for urban civilisation." },
+    desc:"Uruk — the world's first major city — reaches 50,000+ inhabitants.",
+    detail:"The Sumerian city of Uruk featured monumental temples, specialised artisans, long-distance trade networks, and the first writing system — the template for urban civilisation." },
 
-  { id:'e_egypt',        name:'Egypt Unified',           year:-3100,   minTier:2, cat:'politics',   imp:0.9,
+  { id:'e_egypt', name:'Egypt Unified', year:-3100, minTier:2, cat:'politics', imp:0.9,
+    span:[-3100,-30],
     loc:[26.0,32.0,5,'Egypt'],
-    desc:'Pharaoh Narmer unites Upper and Lower Egypt into one kingdom.',
-    detail:"The unification under Narmer c. 3100 BCE created one of history's first nation-states. The resulting civilisation endured 3,000 years, producing the pyramids, hieroglyphic literature, advanced medicine, and an administrative model copied across the ancient world." },
+    desc:'Pharaoh Narmer unites Upper and Lower Egypt — a civilisation that lasts 3,000 years.',
+    detail:"The unification under Narmer c. 3100 BCE created one of history's first nation-states. Egyptian civilisation endured until 30 BCE (Cleopatra), producing the pyramids, hieroglyphic literature, and advanced medicine." },
 
-  { id:'e_bronze',       name:'Bronze Age Begins',       year:-3300,   minTier:2, cat:'technology', imp:0.85,
+  { id:'e_bronze', name:'Bronze Age', year:-3300, minTier:2, cat:'technology', imp:0.85,
+    span:[-3300,-1200],
     loc:[36.5,38.5,6,'Fertile Crescent'],
     desc:'Tin and copper are alloyed into bronze — harder than either metal alone.',
     detail:'Bronze first appeared in the Fertile Crescent c. 3300 BCE. Significantly harder than copper, it revolutionised weapons, tools, and armour. Bronze Age civilisations built the first cities, empires, and legal codes.' },
 
-  { id:'e_indus',        name:'Indus Valley Civilization', year:-2600, minTier:2, cat:'society',    imp:0.9,
+  { id:'e_indus', name:'Indus Valley Civilization', year:-2600, minTier:2, cat:'society', imp:0.9,
+    span:[-2600,-1900],
     loc:[27.33,68.14,9,'Mohenjo-daro, Pakistan'],
     desc:'Mohenjo-daro and Harappa become sophisticated planned cities.',
-    detail:'The Indus Valley Civilisation (2600–1900 BCE) encompassed over 1,000 settlements across modern Pakistan and NW India. Mohenjo-daro featured grid streets, sophisticated sewage systems, and standardised weights and measures — remarkable for its era.' },
+    detail:'The Indus Valley Civilisation (2600–1900 BCE) encompassed over 1,000 settlements with grid streets, sophisticated sewage systems, and standardised weights and measures.' },
 
-  { id:'e_pyramid',      name:'Great Pyramid of Giza',   year:-2560,   minTier:2, cat:'society',    imp:0.9,
+  { id:'e_pyramid', name:'Great Pyramid of Giza', year:-2560, minTier:2, cat:'society', imp:0.9,
     loc:[29.98,31.13,13,'Giza, Egypt'],
     desc:'The Great Pyramid — tallest structure on Earth for 3,800 years.',
-    detail:'Built under Pharaoh Khufu using ~2.3 million stone blocks, the Great Pyramid stands 146.5 m and remained the world\'s tallest structure until Lincoln Cathedral in 1311 CE. A remarkable feat of logistics, engineering, and state power.' },
+    detail:'Built under Pharaoh Khufu using ~2.3 million stone blocks, the Great Pyramid stands 146.5 m and remained the world\'s tallest structure until Lincoln Cathedral in 1311 CE.' },
 
-  { id:'e_hammurabi',    name:'Code of Hammurabi',       year:-1754,   minTier:2, cat:'politics',   imp:0.85,
+  { id:'e_hammurabi', name:'Code of Hammurabi', year:-1754, minTier:2, cat:'politics', imp:0.85,
     loc:[32.54,44.42,9,'Babylon, Iraq'],
     desc:'One of the earliest written legal codes, established in Babylon.',
-    detail:"Hammurabi's 282 laws codified punishments, property rights, trade, and family law. Engraved on a 2.25 m stele, it established written, public law as the basis of governance — foundational to all later legal systems." },
+    detail:"Hammurabi's 282 laws codified punishments, property rights, trade, and family law. It established written, public law as the basis of governance — foundational to all later legal systems." },
 
-  { id:'e_iron',         name:'Iron Age Begins',         year:-1200,   minTier:2, cat:'technology', imp:0.85,
+  { id:'e_iron', name:'Iron Age', year:-1200, minTier:2, cat:'technology', imp:0.85,
+    span:[-1200,-200],
     loc:[39.0,35.0,5,'Anatolia, Turkey'],
     desc:'Iron smelting spreads, making metal tools and weapons widely accessible.',
-    detail:'Iron smelting began in Anatolia c. 1800 BCE but became widespread after the Bronze Age Collapse (~1200 BCE). Iron ore was far more abundant than copper and tin, democratising access to metal and accelerating agricultural productivity and military capability.' },
+    detail:'Iron smelting began in Anatolia c. 1800 BCE but became widespread after the Bronze Age Collapse (~1200 BCE). Iron ore was far more abundant, democratising access to metal.' },
 
-  { id:'e_bronze_fall',  name:'Bronze Age Collapse',     year:-1195,   minTier:2, cat:'conflict',   imp:0.8,
+  { id:'e_bronze_fall', name:'Bronze Age Collapse', year:-1195, minTier:2, cat:'conflict', imp:0.8,
     loc:[36.0,32.0,5,'Eastern Mediterranean'],
     desc:'Multiple civilisations collapse simultaneously across the Eastern Mediterranean.',
-    detail:'Around 1200 BCE, the palace economies of Mycenae, Hatti, Ugarit, and others collapsed in a cascade of invasions, drought, earthquakes, and trade disruption. Writing and long-distance trade largely ceased for centuries — one of history\'s great mysteries.' },
+    detail:'Around 1200 BCE, the palace economies of Mycenae, Hatti, Ugarit, and others collapsed in a cascade of invasions, drought, earthquakes, and trade disruption.' },
 
-  { id:'e_phoenician',   name:'Phoenician Alphabet',     year:-1050,   minTier:2, cat:'society',    imp:0.80,
+  { id:'e_phoenician', name:'Phoenician Alphabet', year:-1050, minTier:2, cat:'society', imp:0.80,
     loc:[34.12,35.65,10,'Byblos, Lebanon'],
     desc:'The Phoenicians develop the first widely-used alphabet — ancestor of most scripts today.',
-    detail:'The Phoenician alphabet (~22 consonants, no vowels) was adopted and adapted by the Greeks, who added vowels, creating the ancestor of Latin, Cyrillic, Arabic, and Hebrew scripts. It is arguably the most influential writing system ever devised.' },
+    detail:'The Phoenician alphabet (~22 consonants) was adopted by the Greeks who added vowels, creating the ancestor of Latin, Cyrillic, Arabic, and Hebrew scripts.' },
 
-  { id:'e_olympics',     name:'Ancient Olympics',        year:-776,    minTier:2, cat:'society',    imp:0.72,
+  { id:'e_olympics', name:'Ancient Olympics', year:-776, minTier:2, cat:'society', imp:0.72,
     loc:[37.64,21.63,12,'Olympia, Greece'],
     desc:'The first recorded Olympic Games are held at Olympia, Greece.',
-    detail:'The Ancient Olympics began in 776 BCE in honor of Zeus and were held every four years for over 1,000 years. They provided a rare pan-Hellenic truce, uniting competing city-states. The modern Games, revived in 1896, are their direct descendant.' },
+    detail:'Held every four years for over 1,000 years in honour of Zeus, the Olympics provided a pan-Hellenic truce. The modern Games, revived in 1896, are their direct descendant.' },
 
-  { id:'e_confucius',    name:'Confucius',               year:-551,    minTier:2, cat:'religion',   imp:0.85,
+  { id:'e_confucius', name:'Confucius', year:-551, minTier:2, cat:'religion', imp:0.85,
     loc:[35.60,117.04,10,'Qufu, China'],
     desc:"Confucius codifies ethics, governance, and social harmony in China.",
-    detail:"Confucius (551–479 BCE) developed a philosophy of moral cultivation, filial piety, and virtuous governance. Confucianism became the dominant ethical framework of Chinese civilisation for 2,500 years, profoundly shaping East Asian culture, politics, and education." },
+    detail:"Confucius (551–479 BCE) developed a philosophy of moral cultivation and virtuous governance. Confucianism became the dominant ethical framework of East Asian civilisation for 2,500 years." },
 
-  { id:'e_persia',       name:'Persian Empire',          year:-550,    minTier:2, cat:'politics',   imp:0.85,
+  { id:'e_persia', name:'Persian Empire', year:-550, minTier:2, cat:'politics', imp:0.85,
+    span:[-550,-330],
     loc:[29.93,52.88,7,'Persepolis, Iran'],
-    desc:'Cyrus the Great founds the Achaemenid Persian Empire — the largest the world had yet seen.',
-    detail:'Cyrus II united Persia and Media, then conquered Lydia and Babylon. At its height under Darius I, the Achaemenid Empire stretched from Greece to India — 5.5 million km². Famous for religious tolerance, the Royal Road, and a sophisticated bureaucracy.' },
+    desc:'Cyrus the Great founds the Achaemenid Empire — the largest the world had yet seen.',
+    detail:'Cyrus II united Persia, then conquered Lydia and Babylon. At its height under Darius I, the empire stretched from Greece to India — 5.5 million km². Famous for religious tolerance and the Royal Road.' },
 
-  { id:'e_buddha',       name:'Buddhism Founded',        year:-528,    minTier:2, cat:'religion',   imp:0.9,
+  { id:'e_buddha', name:'Buddhism Founded', year:-528, minTier:2, cat:'religion', imp:0.9,
     loc:[24.70,84.99,12,'Bodh Gaya, India'],
-    desc:'Siddhartha Gautama attains enlightenment; Buddhism is born in India.',
-    detail:"Siddhartha Gautama's enlightenment c. 528 BCE founded one of history's great religions. Buddhism spread across Asia along trade routes, shaping the cultures of India, Southeast Asia, China, Japan, Korea, and Tibet." },
+    desc:'Siddhartha Gautama attains enlightenment; Buddhism is born.',
+    detail:"Siddhartha Gautama's enlightenment c. 528 BCE founded one of history's great religions, shaping the cultures of India, Southeast Asia, China, Japan, Korea, and Tibet." },
 
-  { id:'e_athens',       name:'Greek Democracy',         year:-508,    minTier:2, cat:'politics',   imp:0.9,
+  { id:'e_athens', name:'Greek Democracy', year:-508, minTier:2, cat:'politics', imp:0.9,
     loc:[37.97,23.73,11,'Athens, Greece'],
-    desc:'Cleisthenes establishes the world\'s first democratic government in Athens.',
-    detail:"Cleisthenes' reforms of 508 BCE gave all male citizens the right to vote in the Assembly. While excluding women, slaves, and foreigners, this model profoundly influenced republican and democratic thought for two millennia." },
+    desc:"Cleisthenes establishes the world's first democratic government in Athens.",
+    detail:"Cleisthenes' reforms of 508 BCE gave all male citizens the right to vote in the Assembly. This model profoundly influenced republican and democratic thought for two millennia." },
 
-  { id:'e_library_alex', name:'Library of Alexandria',   year:-283,    minTier:2, cat:'society',    imp:0.78,
+  { id:'e_library_alex', name:'Library of Alexandria', year:-283, minTier:2, cat:'society', imp:0.78,
     loc:[31.20,29.91,12,'Alexandria, Egypt'],
-    desc:'The greatest library of the ancient world gathers the sum of human knowledge.',
-    detail:'Founded under Ptolemy I (~283 BCE), the Library of Alexandria held an estimated 400,000–700,000 scrolls. It attracted scholars from across the ancient world, making Alexandria the intellectual capital of the Hellenistic era.' },
+    desc:"The greatest library of the ancient world gathers the sum of human knowledge.",
+    detail:'Founded under Ptolemy I (~283 BCE), the Library held an estimated 400,000–700,000 scrolls and attracted scholars from across the ancient world.' },
 
-  { id:'e_alexander',    name:'Alexander the Great',     year:-334,    minTier:2, cat:'politics',   imp:0.9,
+  { id:'e_alexander', name:'Alexander the Great', year:-334, minTier:2, cat:'politics', imp:0.9,
+    span:[-334,-323],
     loc:[40.8,22.5,7,'Pella, Macedonia'],
     desc:'Alexander conquers a vast empire stretching from Greece to India.',
-    detail:'Between 334 and 323 BCE, Alexander of Macedon conquered 2 million square miles in 11 years, spreading Greek culture (Hellenism) across Persia, Egypt, Central Asia, and northwest India, fusing it with local traditions.' },
+    detail:'Between 334 and 323 BCE, Alexander of Macedon conquered 2 million square miles in 11 years, spreading Greek culture across Persia, Egypt, Central Asia, and northwest India.' },
 
-  { id:'e_qin',          name:'China Unified',           year:-221,    minTier:2, cat:'politics',   imp:0.9,
-    loc:[34.27,108.93,6,'Xi\'an, China'],
+  { id:'e_qin', name:'China Unified', year:-221, minTier:2, cat:'politics', imp:0.9,
+    loc:[34.27,108.93,6,"Xi'an, China"],
     desc:"Qin Shi Huang unifies China — the world's most populous state.",
-    detail:'Qin Shi Huang defeated six rival kingdoms in 221 BCE. He standardised weights, measures, currency, and writing; built the first Great Wall sections; and created the Terracotta Army. His centralised model defined Chinese governance for 2,000 years.' },
+    detail:"Qin Shi Huang defeated six rival kingdoms. He standardised weights, measures, currency, and writing; built the first Great Wall sections; created the Terracotta Army. His model defined Chinese governance for 2,000 years." },
 
-  { id:'e_han_dynasty',  name:'Han Dynasty',             year:-202,    minTier:2, cat:'politics',   imp:0.80,
-    loc:[34.27,108.93,6,'Xi\'an, China'],
+  { id:'e_han_dynasty', name:'Han Dynasty', year:-202, minTier:2, cat:'politics', imp:0.80,
+    span:[-202,220],
+    loc:[34.27,108.93,6,"Xi'an, China"],
     desc:'The Han Dynasty unifies and expands China, opening the Silk Road.',
-    detail:'The Han Dynasty (202 BCE – 220 CE) consolidated Chinese identity, expanded territory, established the civil service exam system, and opened Silk Road trade. The period is so foundational that the Chinese majority ethnic group is still called the Han people.' },
+    detail:'The Han Dynasty (202 BCE–220 CE) established the civil service exam system, opened Silk Road trade, and consolidated Chinese identity so deeply that the majority ethnic group is still called the Han people.' },
 
-  { id:'e_rome_rep',     name:'Roman Republic',          year:-509,    minTier:2, cat:'politics',   imp:0.85,
+  { id:'e_rome_rep', name:'Roman Republic', year:-509, minTier:2, cat:'politics', imp:0.85,
+    span:[-509,-27],
     loc:[41.89,12.48,10,'Rome, Italy'],
     desc:'Romans overthrow their king and establish a republic.',
-    detail:"The overthrow of Tarquin c. 509 BCE established the Roman Republic with elected consuls, the Senate, and written law (the Twelve Tables). Republican Rome developed concepts of citizenship, separation of powers, and legal equality." },
+    detail:"The overthrow of Tarquin c. 509 BCE established the Roman Republic with elected consuls, the Senate, and written law. Republican Rome developed concepts of citizenship, separation of powers, and legal equality." },
 
-  { id:'e_silk_road',    name:'Silk Road Opens',         year:-130,    minTier:2, cat:'exploration', imp:0.85,
+  { id:'e_silk_road', name:'Silk Road', year:-130, minTier:2, cat:'exploration', imp:0.85,
+    span:[-130,1450],
     loc:[39.9,60.0,4,'Central Asia'],
     desc:'Trade routes connect China to the Mediterranean, spreading goods and ideas.',
-    detail:"The Silk Road connected Han-dynasty China to the Roman Empire from ~130 BCE. Beyond silk, it transmitted Buddhism, Islam, paper-making, gunpowder, and mathematical concepts across Eurasia — history's most consequential trade network." },
+    detail:"The Silk Road connected Han-dynasty China to the Roman Empire from ~130 BCE. Beyond silk, it transmitted Buddhism, Islam, paper-making, gunpowder, and mathematical concepts across Eurasia." },
 
-  { id:'e_caesar',       name:'Roman Empire',            year:-44,     minTier:2, cat:'politics',   imp:0.9,
+  { id:'e_caesar', name:'Roman Empire', year:-27, minTier:2, cat:'politics', imp:0.9,
+    span:[-27,476],
     loc:[41.89,12.48,10,'Rome, Italy'],
-    desc:"Caesar's assassination leads to the fall of the Republic and rise of the Empire.",
-    detail:"Julius Caesar's assassination (44 BCE) ended the Roman Republic. His heir Octavian became Emperor Augustus in 27 BCE. The empire dominated the Mediterranean for 500 years, shaping Western law, language, and culture." },
+    desc:'Augustus founds the Roman Empire — it will dominate the Mediterranean for 500 years.',
+    detail:"Caesar's assassination (44 BCE) ended the Republic; his heir Octavian became Emperor Augustus in 27 BCE. The empire shaped Western law, language, architecture, and culture." },
 
-  { id:'e_jesus',        name:'Life of Jesus Christ',    year:4,       minTier:2, cat:'religion',   imp:1.0,
+  { id:'e_jesus', name:'Life of Jesus Christ', year:4, minTier:2, cat:'religion', imp:1.0,
     loc:[31.78,35.23,11,'Jerusalem'],
     desc:'Jesus of Nazareth preaches in Judaea; Christianity is founded after his death.',
-    detail:"Jesus of Nazareth was crucified c. 30–33 CE. His followers founded Christianity, which became the Roman Empire's official religion by 380 CE and eventually the world's largest religion, with ~2.4 billion adherents today." },
+    detail:"Jesus was crucified c. 30–33 CE. His followers founded Christianity, which became the Roman Empire's official religion by 380 CE and eventually the world's largest religion, with ~2.4 billion adherents today." },
 
-  { id:'e_maya_classic', name:'Maya Civilization',       year:250,     minTier:2, cat:'society',    imp:0.80,
+  { id:'e_maya_classic', name:'Maya Civilization', year:250, minTier:2, cat:'society', imp:0.80,
+    span:[250,900],
     loc:[17.25,-89.62,7,'Maya Lowlands, Guatemala'],
-    desc:'The Maya build cities, develop a calendar, and create the Americas\' only full writing system.',
-    detail:'The Maya Classic period (250–900 CE) saw city-states like Tikal and Palenque flourish with populations of 50,000–100,000. The Maya developed a precise calendar, advanced mathematics (including zero), hieroglyphic writing, and monumental architecture.' },
+    desc:"The Maya build cities, develop a calendar, and create the Americas' only full writing system.",
+    detail:'The Maya Classic period (250–900 CE) saw city-states like Tikal and Palenque flourish. The Maya developed a precise calendar, advanced mathematics (including zero), and hieroglyphic writing.' },
 
-  { id:'e_byzantine',    name:'Constantinople Founded',  year:330,     minTier:2, cat:'politics',   imp:0.82,
+  { id:'e_byzantine', name:'Byzantine Empire', year:330, minTier:2, cat:'politics', imp:0.82,
+    span:[330,1453],
     loc:[41.01,28.97,11,'Constantinople (Istanbul)'],
-    desc:'Constantine founds Constantinople — the new capital of the Roman Empire.',
-    detail:"Constantine I founded Constantinople (modern Istanbul) in 330 CE on the site of Byzantium. It became the world's largest city and the centre of the Byzantine Empire, which preserved Roman and Greek learning for 1,100 years until its fall in 1453." },
+    desc:"Constantinople — centre of the Byzantine Empire — preserves Roman and Greek learning for 1,100 years.",
+    detail:"Constantine I founded Constantinople in 330 CE. The Byzantine Empire preserved ancient knowledge, produced Justinian's Code, and held the eastern Mediterranean until its fall in 1453." },
 
-  { id:'e_rome_fall',    name:'Fall of Western Rome',    year:476,     minTier:2, cat:'politics',   imp:0.9,
+  { id:'e_rome_fall', name:'Fall of Western Rome', year:476, minTier:2, cat:'politics', imp:0.9,
     loc:[41.89,12.48,8,'Rome, Italy'],
     desc:'The Western Roman Empire falls, ending classical antiquity.',
-    detail:"The deposition of Romulus Augustulus in 476 CE marks the end of the Western Roman Empire. In reality a gradual process over a century, it ushered in the Middle Ages: fragmented kingdoms, declining urban life, and the rise of the Catholic Church." },
+    detail:"The deposition of Romulus Augustulus in 476 CE marks the end of the Western Roman Empire. It ushered in the Middle Ages: fragmented kingdoms, declining urban life, and the rise of the Catholic Church." },
 
-  // ── TIER 3 · medieval ─────────────────────────────────────────────────
-  { id:'e_justinian',    name:'Justinian Code',          year:529,     minTier:3, cat:'politics',   imp:0.76,
+  // ── TIER 3 ──────────────────────────────────────────────────────────
+  { id:'e_justinian', name:'Justinian Code', year:529, minTier:3, cat:'politics', imp:0.76,
     loc:[41.01,28.97,10,'Constantinople'],
-    desc:"Byzantine Emperor Justinian codifies Roman law — the foundation of European legal systems.",
-    detail:"The Corpus Juris Civilis (529 CE) consolidated centuries of Roman law. Rediscovered in medieval Europe, it became the basis for the legal systems of France, Germany, Spain, Italy, and most of the world outside the Anglo-American common-law tradition." },
+    desc:"Justinian codifies Roman law — the foundation of European legal systems.",
+    detail:"The Corpus Juris Civilis (529 CE) consolidated centuries of Roman law. Rediscovered in medieval Europe, it became the basis for the legal systems of France, Germany, Spain, Italy, and most of the non-common-law world." },
 
-  { id:'e_islam',        name:'Islam Founded',           year:610,     minTier:3, cat:'religion',   imp:1.0,
+  { id:'e_islam', name:'Islam Founded', year:610, minTier:3, cat:'religion', imp:1.0,
+    span:[622,750],
     loc:[21.42,39.82,10,'Mecca, Saudi Arabia'],
-    desc:'Muhammad receives his first revelation; Islam emerges in Arabia.',
-    detail:"Muhammad ibn Abdullah received his first revelation in 610 CE. Within a century of his death (632 CE), Islamic armies conquered Arabia, Persia, Egypt, and Spain, spreading a faith and civilisation that would number 1.8 billion adherents by 2020." },
+    desc:'Muhammad receives his first revelation; Islam rapidly expands across the world.',
+    detail:"Muhammad ibn Abdullah received his first revelation in 610 CE. Within a century of his death (632 CE), Islamic armies conquered Arabia, Persia, Egypt, and Spain. Islam now has 1.8 billion adherents." },
 
-  { id:'e_zero',         name:'Indian Numerals & Zero',  year:628,     minTier:3, cat:'technology', imp:0.80,
+  { id:'e_zero', name:'Indian Numerals & Zero', year:628, minTier:3, cat:'technology', imp:0.80,
     loc:[23.18,77.40,5,'India'],
     desc:'Indian mathematicians formalise zero and the decimal positional number system.',
-    detail:'Brahmagupta (628 CE) formalised the rules for zero and negative numbers. The Hindu-Arabic numeral system (0–9) was transmitted to Europe via Islamic scholars, replacing Roman numerals and enabling modern mathematics, science, and commerce.' },
+    detail:'Brahmagupta (628 CE) formalised the rules for zero and negative numbers. The Hindu-Arabic numeral system (0–9) was transmitted to Europe via Islamic scholars, enabling modern mathematics, science, and commerce.' },
 
-  { id:'e_charlemagne',  name:"Charlemagne's Empire",    year:800,     minTier:3, cat:'politics',   imp:0.85,
+  { id:'e_charlemagne', name:"Charlemagne's Empire", year:800, minTier:3, cat:'politics', imp:0.85,
+    span:[768,814],
     loc:[50.77,6.08,9,'Aachen, Germany'],
     desc:'Charlemagne is crowned Holy Roman Emperor, uniting much of western Europe.',
-    detail:"Charlemagne's coronation by Pope Leo III (Christmas 800 CE) symbolised the alliance of church and state that defined medieval Europe. His Carolingian Empire covered modern France, Germany, and Italy, and his promotion of literacy laid foundations for European civilisation." },
+    detail:"Charlemagne's coronation by Pope Leo III (Christmas 800 CE) symbolised the alliance of church and state. His Carolingian Empire covered modern France, Germany, and Italy, and his promotion of literacy laid foundations for European civilisation." },
 
-  { id:'e_abbasid',      name:'Abbasid Caliphate',       year:762,     minTier:3, cat:'politics',   imp:0.80,
+  { id:'e_abbasid', name:'Abbasid Caliphate', year:762, minTier:3, cat:'politics', imp:0.80,
+    span:[762,1258],
     loc:[33.34,44.40,9,'Baghdad, Iraq'],
     desc:"Baghdad becomes the world's largest city and centre of Islamic Golden Age learning.",
-    detail:'The Abbasid Caliphate (750–1258 CE) established Baghdad as the intellectual capital of the world. The House of Wisdom translated Greek, Indian, and Persian texts and made breakthroughs in algebra, astronomy, medicine, and optics.' },
+    detail:"The Abbasid Caliphate (750–1258 CE) established Baghdad as the intellectual capital of the world. The House of Wisdom made breakthroughs in algebra, astronomy, medicine, and optics." },
 
-  { id:'e_vikings',      name:'Viking Age',              year:793,     minTier:3, cat:'exploration', imp:0.8,
+  { id:'e_vikings', name:'Viking Age', year:793, minTier:3, cat:'exploration', imp:0.8,
+    span:[793,1066],
     loc:[59.9,10.75,5,'Scandinavia'],
     desc:'Norse raiders and explorers range from North America to Russia.',
-    detail:"The Viking Age (793–1066 CE) saw Norse people raid, trade, settle, and explore across Europe and the North Atlantic. They settled Iceland, Greenland, and briefly North America (Vinland, c. 1000 CE), while trading from the British Isles to Byzantium." },
+    detail:"The Viking Age (793–1066 CE) saw Norse people raid, trade, settle, and explore. They settled Iceland, Greenland, and briefly North America (Vinland, c. 1000 CE), while trading from Britain to Byzantium." },
 
-  { id:'e_gunpowder_china', name:'Chinese Gunpowder',    year:850,     minTier:3, cat:'technology', imp:0.78,
+  { id:'e_gunpowder_china', name:'Chinese Gunpowder', year:850, minTier:3, cat:'technology', imp:0.78,
     loc:[35.0,105.0,4,'China'],
     desc:'Chinese alchemists develop gunpowder — a discovery that will transform warfare.',
-    detail:'Chinese alchemists accidentally discovered gunpowder (~9th century CE) while searching for immortality elixirs. By the 10th century it was used in fire-arrows and bombs. Transmitted westward via the Mongols and Silk Road, gunpowder shattered medieval fortifications and feudal warfare.' },
+    detail:"Chinese alchemists discovered gunpowder (~9th century CE). By the 10th century it was used in fire-arrows and bombs. Transmitted westward via the Mongols and Silk Road, gunpowder shattered medieval fortifications." },
 
-  { id:'e_song_dynasty', name:'Song Dynasty China',      year:960,     minTier:3, cat:'society',    imp:0.78,
+  { id:'e_song_dynasty', name:'Song Dynasty China', year:960, minTier:3, cat:'society', imp:0.78,
+    span:[960,1279],
     loc:[30.26,120.15,7,'Hangzhou, China'],
-    desc:'China\'s Song Dynasty achieves the world\'s first industrial economy and printing revolution.',
-    detail:"The Song Dynasty (960–1279) produced extraordinary innovations: movable type printing (1040), paper money, the magnetic compass, and iron/steel production dwarfing contemporary Europe. Hangzhou had over 1 million inhabitants — the world's largest city." },
+    desc:"China's Song Dynasty achieves the world's first industrial economy and printing revolution.",
+    detail:"The Song Dynasty (960–1279) produced movable type printing (1040), paper money, the magnetic compass, and iron/steel production dwarfing contemporary Europe. Hangzhou had over 1 million inhabitants." },
 
-  { id:'e_leif_erikson', name:'Norse Reach Americas',    year:1000,    minTier:3, cat:'exploration', imp:0.74,
+  { id:'e_leif_erikson', name:'Norse Reach Americas', year:1000, minTier:3, cat:'exploration', imp:0.74,
     loc:[51.6,-55.5,8,"L'Anse aux Meadows, Newfoundland"],
     desc:"Leif Erikson establishes a Norse settlement in North America — 500 years before Columbus.",
-    detail:"Around 1000 CE, Norse explorers established Vinland — likely at L'Anse aux Meadows, Newfoundland. Archaeological evidence confirmed in 1960, this was the first confirmed European contact with the Americas. The colony was short-lived due to conflict with Indigenous peoples." },
+    detail:"Around 1000 CE, Norse explorers established Vinland — confirmed at L'Anse aux Meadows, Newfoundland. The first confirmed European contact with the Americas, though the colony was short-lived." },
 
-  { id:'e_crusades',     name:'The Crusades',            year:1096,    minTier:3, cat:'conflict',   imp:0.85,
+  { id:'e_crusades', name:'The Crusades', year:1096, minTier:3, cat:'conflict', imp:0.85,
+    span:[1096,1291],
     loc:[31.78,35.23,9,'Jerusalem'],
     desc:'Christian armies launch religious wars for the Holy Land.',
-    detail:"Pope Urban II called the First Crusade in 1096; Jerusalem fell in 1099. Over 200 years, nine major Crusades were launched. They intensified Christian-Muslim conflict, established Crusader states, and spurred trade and cultural exchange between Europe and the Islamic world." },
+    detail:"Pope Urban II called the First Crusade in 1096; Jerusalem fell in 1099. Nine major Crusades over 200 years intensified Christian-Muslim conflict and spurred trade and cultural exchange." },
 
-  { id:'e_angkor',       name:'Angkor Wat',              year:1113,    minTier:3, cat:'society',    imp:0.74,
+  { id:'e_angkor', name:'Angkor Wat', year:1113, minTier:3, cat:'society', imp:0.74,
     loc:[13.41,103.87,13,'Angkor Wat, Cambodia'],
     desc:'The Khmer Empire builds Angkor Wat — the largest religious monument ever constructed.',
-    detail:"Angkor Wat was built under Suryavarman II (1113–1150 CE) as a Hindu temple complex covering 1.6 km². It later became a Buddhist site. The Khmer Empire at its peak controlled much of Southeast Asia, with Angkor being the world's largest pre-industrial city." },
+    detail:"Angkor Wat was built under Suryavarman II (1113–1150 CE) as a Hindu temple complex covering 1.6 km². The Khmer Empire at its peak controlled much of Southeast Asia." },
 
-  { id:'e_mongols',      name:'Mongol Empire',           year:1206,    minTier:3, cat:'politics',   imp:0.9,
+  { id:'e_mongols', name:'Mongol Empire', year:1206, minTier:3, cat:'politics', imp:0.9,
+    span:[1206,1368],
     loc:[47.9,106.9,5,'Ulaanbaatar, Mongolia'],
-    desc:'Genghis Khan creates the largest contiguous land empire in history.',
-    detail:"Genghis Khan united the Mongol tribes in 1206. His campaigns created an empire of 24 million km². The Mongol conquests killed an estimated 40 million people (10% of world population) but also unified Eurasian trade routes and enabled remarkable cross-cultural exchange." },
+    desc:"Genghis Khan creates the largest contiguous land empire in history.",
+    detail:"Genghis Khan united the Mongol tribes in 1206. His campaigns created an empire of 24 million km². Conquered 40 million people (10% of world population) but unified Eurasian trade routes." },
 
-  { id:'e_magna',        name:'Magna Carta',             year:1215,    minTier:3, cat:'politics',   imp:0.9,
+  { id:'e_magna', name:'Magna Carta', year:1215, minTier:3, cat:'politics', imp:0.9,
     loc:[51.44,-0.56,12,'Runnymede, England'],
     desc:'English barons force King John to accept limits on royal power.',
-    detail:"The Magna Carta (1215) established that even the king was subject to the rule of law, enshrining habeas corpus. Though initially a feudal compromise, it became the foundational document for constitutional government in the English-speaking world." },
+    detail:"The Magna Carta (1215) established that even the king was subject to the rule of law, enshrining habeas corpus. It became the foundational document for constitutional government." },
 
-  { id:'e_aztec_found',  name:'Aztec Empire',            year:1325,    minTier:3, cat:'politics',   imp:0.80,
+  { id:'e_aztec_found', name:'Aztec Empire', year:1325, minTier:3, cat:'politics', imp:0.80,
+    span:[1325,1521],
     loc:[19.43,-99.13,11,'Tenochtitlan (Mexico City)'],
-    desc:"The Aztecs found Tenochtitlan — a city that will grow larger than any in contemporary Europe.",
-    detail:"Founded in 1325 on an island in Lake Texcoco, Tenochtitlan grew to 200,000–300,000 people by 1500 — larger than London or Paris. The Aztec Empire controlled central Mexico through a tribute system until its conquest by Hernán Cortés in 1521." },
+    desc:"The Aztecs found Tenochtitlan — a city larger than any in contemporary Europe.",
+    detail:"Founded in 1325 on Lake Texcoco, Tenochtitlan grew to 200,000–300,000 people by 1500. The Aztec Empire controlled central Mexico through a tribute system until its conquest by Cortés in 1521." },
 
-  { id:'e_mali',         name:'Mali Empire & Mansa Musa', year:1312,   minTier:3, cat:'politics',   imp:0.8,
+  { id:'e_mali', name:'Mali Empire & Mansa Musa', year:1312, minTier:3, cat:'politics', imp:0.8,
+    span:[1235,1600],
     loc:[12.65,-8.0,5,'Mali Empire, West Africa'],
     desc:"The world's wealthiest empire controls Africa's gold and salt trade.",
-    detail:"Under Mansa Musa (1312–1337), the Mali Empire produced most of the world's gold. His 1324 pilgrimage to Mecca — distributing so much gold he caused inflation across North Africa — demonstrated the extraordinary wealth of sub-Saharan Africa." },
+    detail:"Under Mansa Musa (1312–1337), the Mali Empire produced most of the world's gold. His 1324 pilgrimage to Mecca — distributing so much gold he caused inflation — demonstrated sub-Saharan Africa's extraordinary wealth." },
 
-  { id:'e_hundred_years', name:"Hundred Years' War",     year:1337,    minTier:3, cat:'conflict',   imp:0.74,
-    loc:[48.85,2.35,6,'France / England'],
-    desc:'England and France fight a century-long war that forges both nations\' identities.',
-    detail:"The Hundred Years' War (1337–1453) was a series of conflicts over the French throne. Joan of Arc's inspired campaigns (1429–1431) turned the tide for France. The war ended English claims to France and gave birth to French national identity, the longbow age, and early nationalism." },
+  { id:'e_hundred_years', name:"Hundred Years' War", year:1337, minTier:3, cat:'conflict', imp:0.74,
+    span:[1337,1453],
+    loc:[48.85,2.35,6,'France'],
+    desc:"England and France fight a century-long war that forges both nations' identities.",
+    detail:"The Hundred Years' War (1337–1453) was a series of conflicts over the French throne. Joan of Arc's campaigns (1429–1431) turned the tide for France. The war gave birth to French national identity." },
 
-  { id:'e_black_death',  name:'Black Death',             year:1347,    minTier:3, cat:'environment', imp:0.95,
+  { id:'e_black_death', name:'Black Death', year:1347, minTier:3, cat:'environment', imp:0.95,
     loc:[45.46,9.19,5,'Europe'],
-    desc:'Bubonic plague kills 30–60% of Europe\'s population.',
-    detail:'The Black Death (1347–1351) killed 75–200 million people across Eurasia. It devastated economies and feudal structures, but created labour shortages that broke serfdom, accelerated the Renaissance, and fundamentally reshaped European society and religious life.' },
+    desc:"Bubonic plague kills 30–60% of Europe's population.",
+    detail:'The Black Death (1347–1351) killed 75–200 million people across Eurasia. It created labour shortages that broke serfdom, accelerated the Renaissance, and fundamentally reshaped European society.' },
 
-  { id:'e_renaissance',  name:'Renaissance',             year:1350,    minTier:3, cat:'society',    imp:0.9,
+  { id:'e_renaissance', name:'Renaissance', year:1350, minTier:3, cat:'society', imp:0.9,
+    span:[1350,1600],
     loc:[43.77,11.25,10,'Florence, Italy'],
     desc:'A cultural rebirth in Italy revives classical learning and launches modern art.',
-    detail:"Beginning in 14th-century Italian city-states, the Renaissance rediscovered ancient Greek and Roman texts. Leonardo da Vinci, Michelangelo, and Petrarch revolutionised art, literature, architecture, and humanist philosophy, laying the groundwork for the modern world." },
+    detail:"Beginning in 14th-century Italian city-states, the Renaissance rediscovered ancient Greek and Roman texts. Leonardo da Vinci, Michelangelo, and Petrarch revolutionised art, literature, and humanist philosophy." },
 
-  { id:'e_inca_empire',  name:'Inca Empire',             year:1438,    minTier:3, cat:'politics',   imp:0.78,
+  { id:'e_inca_empire', name:'Inca Empire', year:1438, minTier:3, cat:'politics', imp:0.78,
+    span:[1438,1533],
     loc:[-13.53,-71.97,9,'Cusco, Peru'],
     desc:'The Inca build the largest empire in pre-Columbian America.',
-    detail:"The Inca Empire (Tawantinsuyu) at its height (1438–1533) stretched 4,300 km along the Andes, linked by 40,000 km of roads. With no writing system, it used quipu (knotted cords) for record-keeping. Conquered by Francisco Pizarro in 1533 with just 168 men." },
+    detail:"The Inca Empire at its height (1438–1533) stretched 4,300 km along the Andes, linked by 40,000 km of roads. Conquered by Francisco Pizarro in 1533 with just 168 men." },
 
-  { id:'e_gutenberg',    name:'Printing Press',          year:1440,    minTier:3, cat:'technology', imp:0.95,
+  { id:'e_gutenberg', name:'Printing Press', year:1440, minTier:3, cat:'technology', imp:0.95,
     loc:[49.99,8.27,11,'Mainz, Germany'],
     desc:"Gutenberg's movable-type press democratises knowledge across Europe.",
-    detail:"Gutenberg's printing press (c. 1440) allowed books to be produced 1,000× faster than hand-copying. By 1500, over 20 million books had been printed. Mass dissemination of information accelerated the Renaissance, fuelled the Reformation, and democratised knowledge." },
+    detail:"Gutenberg's printing press (c. 1440) allowed books to be produced 1,000× faster than hand-copying. By 1500, over 20 million books had been printed, accelerating the Renaissance and fuelling the Reformation." },
 
-  { id:'e_fall_const',   name:'Fall of Constantinople',  year:1453,    minTier:3, cat:'conflict',   imp:0.83,
+  { id:'e_fall_const', name:'Fall of Constantinople', year:1453, minTier:3, cat:'conflict', imp:0.83,
     loc:[41.01,28.97,11,'Constantinople (Istanbul)'],
     desc:'The Ottoman Turks capture Constantinople, ending the Byzantine Empire.',
-    detail:"Mehmed II's 53-day siege (1453) ended the 1,100-year-old Byzantine Empire. The fall drove Greek scholars and texts to Italy, accelerating the Renaissance. It also cut overland Silk Road routes, motivating European powers to seek sea routes to Asia." },
+    detail:"Mehmed II's 53-day siege (1453) ended the 1,100-year-old Byzantine Empire. It drove Greek scholars and texts to Italy, accelerating the Renaissance, and cut overland Silk Road routes." },
 
-  { id:'e_ottoman',      name:'Ottoman Empire',          year:1299,    minTier:3, cat:'politics',   imp:0.85,
+  { id:'e_ottoman', name:'Ottoman Empire', year:1299, minTier:3, cat:'politics', imp:0.85,
+    span:[1299,1922],
     loc:[41.01,28.97,8,'Constantinople (Istanbul)'],
-    desc:'The Ottomans build an empire spanning three continents.',
-    detail:"Founded by Osman I c. 1299, the Ottoman Empire reached its height under Suleiman the Magnificent (1520–1566), controlling Southeast Europe, the Middle East, and North Africa. Constantinople fell in 1453, ending the Byzantine Empire. The Ottomans ruled until 1922." },
+    desc:'The Ottomans build an empire spanning three continents for over 600 years.',
+    detail:"Founded by Osman I c. 1299, the Ottoman Empire reached its height under Suleiman the Magnificent (1520–1566), controlling Southeast Europe, the Middle East, and North Africa." },
 
-  { id:'e_columbus',     name:'Columbus Reaches Americas', year:1492,  minTier:3, cat:'exploration', imp:0.95,
+  { id:'e_columbus', name:'Columbus Reaches Americas', year:1492, minTier:3, cat:'exploration', imp:0.95,
     loc:[24.0,-75.0,7,'Bahamas / Caribbean'],
     desc:'Columbus triggers permanent contact between the Old and New Worlds.',
-    detail:"Columbus's 1492 voyage initiated the Columbian Exchange — transfer of plants, animals, diseases, and cultures between hemispheres. It triggered European colonialism that would reshape the globe, while diseases brought by Europeans killed an estimated 90% of Indigenous American populations." },
+    detail:"Columbus's 1492 voyage initiated the Columbian Exchange — transfer of plants, animals, diseases, and cultures between hemispheres. European diseases killed an estimated 90% of Indigenous American populations." },
 
-  // ── TIER 4 · early modern ─────────────────────────────────────────────
-  { id:'e_reform',       name:'Protestant Reformation',  year:1517,    minTier:4, cat:'religion',   imp:0.9,
+  // ── TIER 4 ──────────────────────────────────────────────────────────
+  { id:'e_reform', name:'Protestant Reformation', year:1517, minTier:4, cat:'religion', imp:0.9,
     loc:[51.85,12.63,10,'Wittenberg, Germany'],
     desc:"Luther's 95 Theses split Christianity and spark the Wars of Religion.",
-    detail:"Martin Luther's 1517 theses ignited the Reformation, splintering Western Christianity into Catholic and Protestant branches. The resulting Wars of Religion killed millions, while driving individual conscience, literacy, and eventual separation of church and state." },
+    detail:"Martin Luther's 1517 theses ignited the Reformation, splintering Western Christianity. The resulting Wars of Religion killed millions, while driving individual conscience, literacy, and separation of church and state." },
 
-  { id:'e_magellan',     name:'First Circumnavigation',  year:1519,    minTier:4, cat:'exploration', imp:0.82,
+  { id:'e_magellan', name:'First Circumnavigation', year:1519, minTier:4, cat:'exploration', imp:0.82,
     loc:[-20.0,-50.0,3,'South America'],
     desc:"Magellan's expedition proves Earth's spherical shape by sailing around it.",
-    detail:"Magellan set out in 1519 with 5 ships and 270 men. Though he died in the Philippines (1521), 18 survivors under Elcano completed the first circumnavigation, demonstrating the vast scale of the Pacific." },
+    detail:"Magellan set out in 1519 with 5 ships and 270 men. Though he died in the Philippines (1521), 18 survivors under Elcano completed the first circumnavigation." },
 
-  { id:'e_slave_trade',  name:'Transatlantic Slave Trade', year:1526,  minTier:4, cat:'conflict',   imp:0.9,
+  { id:'e_slave_trade', name:'Transatlantic Slave Trade', year:1526, minTier:4, cat:'conflict', imp:0.9,
+    span:[1526,1888],
     loc:[0.0,-30.0,3,'Atlantic Ocean'],
     desc:'~12 million Africans are forcibly transported to the Americas as enslaved people.',
-    detail:"The transatlantic slave trade forcibly transported 12.5 million Africans (10.7 million surviving the voyage). The largest forced migration in history, it underpinned colonial economies, and its legacy of racial inequality continues to shape societies today." },
+    detail:"The transatlantic slave trade forcibly transported 12.5 million Africans (10.7 million surviving the voyage). The largest forced migration in history, its legacy continues to shape societies today." },
 
-  { id:'e_sci_rev',      name:'Scientific Revolution',   year:1543,    minTier:4, cat:'technology', imp:0.95,
+  { id:'e_sci_rev', name:'Scientific Revolution', year:1543, minTier:4, cat:'technology', imp:0.95,
+    span:[1543,1700],
     loc:[52.0,0.0,5,'Europe'],
     desc:'Copernicus, Galileo, and Newton establish the foundations of modern science.',
-    detail:"Copernicus's heliocentric model (1543), Galileo's telescopic discoveries (1609), and Newton's laws of motion and gravity (1687) created a new method: observation, hypothesis, mathematical proof. The Scientific Revolution broke the hold of ancient authority." },
+    detail:"Copernicus's heliocentric model (1543), Galileo's telescopic discoveries (1609), and Newton's laws (1687) created the scientific method: observation, hypothesis, mathematical proof." },
 
-  { id:'e_shakespeare',  name:'Shakespeare',             year:1564,    minTier:4, cat:'society',    imp:0.80,
+  { id:'e_shakespeare', name:'Shakespeare', year:1564, minTier:4, cat:'society', imp:0.80,
     loc:[52.19,-1.71,11,'Stratford-upon-Avon, England'],
     desc:'William Shakespeare writes the most influential body of literature in English.',
-    detail:"Shakespeare (1564–1616) wrote 37 plays and 154 sonnets that explored the full range of human experience. Coined or popularised over 1,700 words still in use; his works are performed more than any other playwright's and have been translated into every major language." },
+    detail:"Shakespeare (1564–1616) wrote 37 plays and 154 sonnets. He coined or popularised over 1,700 words still in use; his works are performed more than any other playwright's." },
 
-  { id:'e_galileo',      name:"Galileo's Telescope",     year:1609,    minTier:4, cat:'technology', imp:0.83,
+  { id:'e_galileo', name:"Galileo's Telescope", year:1609, minTier:4, cat:'technology', imp:0.83,
     loc:[45.41,12.35,10,'Venice, Italy'],
-    desc:'Galileo turns the telescope to the sky, discovering moons of Jupiter and confirming heliocentrism.',
-    detail:'Galileo Galilei (1609) observed four moons orbiting Jupiter, sunspots, and the phases of Venus — proving planets orbit the Sun. His conflict with the Inquisition and his method of empirical observation defined the tension between faith and science for centuries.' },
+    desc:'Galileo turns the telescope to the sky, confirming heliocentrism.',
+    detail:"Galileo observed four moons orbiting Jupiter and phases of Venus — proving planets orbit the Sun. His conflict with the Inquisition defined the tension between faith and science for centuries." },
 
-  { id:'e_thirty_years', name:'Thirty Years War',        year:1618,    minTier:4, cat:'conflict',   imp:0.76,
+  { id:'e_thirty_years', name:'Thirty Years War', year:1618, minTier:4, cat:'conflict', imp:0.76,
+    span:[1618,1648],
     loc:[50.08,14.44,5,'Central Europe'],
     desc:"Europe's most destructive conflict before the 20th century reshapes the continent.",
-    detail:"The Thirty Years War (1618–1648) began as a religious conflict between Catholic and Protestant states but became a general European war. It killed up to 8 million people — one-third of Germany's population. The Peace of Westphalia (1648) established the modern system of sovereign nation-states." },
+    detail:"The Thirty Years War (1618–1648) killed up to 8 million people — one-third of Germany's population. The Peace of Westphalia (1648) established the modern system of sovereign nation-states." },
 
-  { id:'e_taj_mahal',    name:'Taj Mahal',               year:1632,    minTier:4, cat:'society',    imp:0.74,
+  { id:'e_taj_mahal', name:'Taj Mahal', year:1632, minTier:4, cat:'society', imp:0.74,
     loc:[27.17,78.04,13,'Agra, India'],
-    desc:'Emperor Shah Jahan builds the Taj Mahal as a monument to love.',
-    detail:'The Taj Mahal (1632–1653) was built by Mughal Emperor Shah Jahan for his wife Mumtaz Mahal who died in childbirth. Combining Persian, Islamic, and Indian architecture, it employed 20,000 artisans and is widely considered the finest example of Mughal architecture.' },
+    desc:"Emperor Shah Jahan builds the Taj Mahal as a monument to love.",
+    detail:"The Taj Mahal (1632–1653) was built by Mughal Emperor Shah Jahan for his wife Mumtaz Mahal. Combining Persian, Islamic, and Indian architecture, it employed 20,000 artisans." },
 
-  { id:'e_english_cw',   name:'English Civil War',       year:1642,    minTier:4, cat:'politics',   imp:0.8,
+  { id:'e_english_cw', name:'English Civil War', year:1642, minTier:4, cat:'politics', imp:0.8,
+    span:[1642,1651],
     loc:[51.5,-1.8,7,'England'],
     desc:'Parliament defeats King Charles I; England briefly becomes a republic.',
-    detail:"The English Civil War (1642–1651) established parliamentary supremacy. Charles I was executed in 1649. The conflict's principles — that rulers answer to law — influenced the Glorious Revolution (1688) and later democratic revolutions worldwide." },
+    detail:"The English Civil War (1642–1651) established parliamentary supremacy. Charles I was executed in 1649. Its principles influenced the Glorious Revolution (1688) and later democratic revolutions worldwide." },
 
-  { id:'e_newton',       name:"Newton's Principia",      year:1687,    minTier:4, cat:'technology', imp:0.9,
+  { id:'e_newton', name:"Newton's Principia", year:1687, minTier:4, cat:'technology', imp:0.9,
     loc:[52.25,-0.50,10,'Woolsthorpe, England'],
     desc:"Newton's laws of motion and gravity unify physics and astronomy.",
-    detail:"Newton's Principia Mathematica (1687) unified terrestrial and celestial mechanics. It demonstrated that the same mathematical principles govern both falling apples and orbiting planets — defining physics for 230 years until Einstein." },
+    detail:"Newton's Principia Mathematica (1687) unified terrestrial and celestial mechanics — defining physics for 230 years until Einstein." },
 
-  { id:'e_glorious_rev', name:'Glorious Revolution',     year:1688,    minTier:4, cat:'politics',   imp:0.76,
+  { id:'e_glorious_rev', name:'Glorious Revolution', year:1688, minTier:4, cat:'politics', imp:0.76,
     loc:[51.5,-0.12,9,'London, England'],
-    desc:"England's bloodless revolution establishes constitutional monarchy and parliamentary supremacy.",
-    detail:"The Glorious Revolution (1688) deposed James II and established William of Orange and Mary II. The Bill of Rights (1689) enshrined parliamentary sovereignty, freedom of speech in Parliament, and regular elections — the template for modern constitutional government." },
+    desc:"England's bloodless revolution establishes constitutional monarchy.",
+    detail:"The Glorious Revolution (1688) deposed James II. The Bill of Rights (1689) enshrined parliamentary sovereignty, freedom of speech in Parliament, and regular elections." },
 
-  { id:'e_steam',        name:'Steam Engine (Watt)',      year:1769,    minTier:4, cat:'technology', imp:0.9,
+  { id:'e_steam', name:'Steam Engine (Watt)', year:1769, minTier:4, cat:'technology', imp:0.9,
     loc:[55.87,-4.27,10,'Glasgow, Scotland'],
     desc:"James Watt's steam engine powers the Industrial Revolution.",
-    detail:"James Watt's separate condenser design (1769) made steam engines dramatically more efficient. His engines powered factories, mines, and locomotives, harnessing fossil fuels on a civilisational scale and making Britain the world's first industrial nation." },
+    detail:"Watt's separate condenser design (1769) made steam engines dramatically more efficient. His engines powered factories, mines, and locomotives, making Britain the world's first industrial nation." },
 
-  { id:'e_boston_tea',   name:'Boston Tea Party',        year:1773,    minTier:4, cat:'politics',   imp:0.74,
+  { id:'e_boston_tea', name:'Boston Tea Party', year:1773, minTier:4, cat:'politics', imp:0.74,
     loc:[42.36,-71.05,12,'Boston, USA'],
     desc:"American colonists dump British tea into Boston Harbour, igniting the Revolution.",
-    detail:"On December 16, 1773, 116 men dumped 342 chests of tea (~92,000 lb) into Boston Harbour to protest 'taxation without representation'. The incident led directly to British crackdown and the convening of the First Continental Congress (1774)." },
+    detail:"On December 16, 1773, 116 men dumped 342 chests of tea into Boston Harbour to protest 'taxation without representation'. This led directly to the First Continental Congress (1774)." },
 
-  { id:'e_amer_rev',     name:'American Revolution',     year:1776,    minTier:4, cat:'politics',   imp:0.9,
+  { id:'e_amer_rev', name:'American Revolution', year:1776, minTier:4, cat:'politics', imp:0.9,
+    span:[1775,1783],
     loc:[39.95,-75.17,9,'Philadelphia, USA'],
     desc:'The United States declares independence — the first modern constitutional republic.',
-    detail:"The Declaration of Independence (1776) and Constitution (1787) established the first major modern republic based on Enlightenment principles: popular sovereignty, separation of powers, individual rights. It inspired revolutions in France, Haiti, and Latin America." },
+    detail:"The Declaration of Independence (1776) and Constitution (1787) established the first major modern republic: popular sovereignty, separation of powers, individual rights. It inspired revolutions in France, Haiti, and Latin America." },
 
-  { id:'e_haitian_rev',  name:'Haitian Revolution',      year:1791,    minTier:4, cat:'politics',   imp:0.80,
+  { id:'e_haitian_rev', name:'Haitian Revolution', year:1791, minTier:4, cat:'politics', imp:0.80,
+    span:[1791,1804],
     loc:[18.54,-72.34,9,'Port-au-Prince, Haiti'],
     desc:'Enslaved people revolt and found the first Black republic in history.',
-    detail:"The Haitian Revolution (1791–1804) was the only successful slave revolt in history. Led by Toussaint Louverture and Jean-Jacques Dessalines, it abolished slavery and established Haiti as the world's first Black republic — a seismic challenge to the slave-based Atlantic order." },
+    detail:"The Haitian Revolution (1791–1804) was the only successful slave revolt in history. Led by Toussaint Louverture and Dessalines, it established the world's first Black republic." },
 
-  { id:'e_french_rev',   name:'French Revolution',       year:1789,    minTier:4, cat:'politics',   imp:0.95,
+  { id:'e_french_rev', name:'French Revolution', year:1789, minTier:4, cat:'politics', imp:0.95,
+    span:[1789,1799],
     loc:[48.85,2.35,10,'Paris, France'],
     desc:'The French Revolution dismantles monarchy and spreads liberal ideals across Europe.',
-    detail:"The French Revolution (1789–1799) abolished feudalism, executed Louis XVI, and proclaimed liberté, égalité, fraternité. The Napoleonic Wars that followed spread revolutionary ideals across Europe, permanently reshaping its political landscape." },
+    detail:"The French Revolution (1789–1799) abolished feudalism, executed Louis XVI, and proclaimed liberté, égalité, fraternité. The Napoleonic Wars that followed spread revolutionary ideals across Europe." },
 
-  // ── TIER 5 · modern / contemporary ────────────────────────────────────
-  { id:'e_napoleon',     name:'Napoleonic Wars',         year:1803,    minTier:5, cat:'conflict',   imp:0.85,
-    loc:[48.85,2.35,6,'Paris / Europe'],
+  // ── TIER 5 ──────────────────────────────────────────────────────────
+  { id:'e_napoleon', name:'Napoleonic Wars', year:1803, minTier:5, cat:'conflict', imp:0.85,
+    span:[1803,1815],
+    loc:[48.85,2.35,6,'France / Europe'],
     desc:"Napoleon's campaigns reshape Europe and spread revolutionary ideals.",
-    detail:"Napoleon's campaigns (1803–1815) spread the Napoleonic Code (legal equality), abolished feudalism across conquered territories, and stirred nationalist movements. His defeat at Waterloo (1815) led to a generation of conservative reaction." },
+    detail:"Napoleon's campaigns (1803–1815) spread the Napoleonic Code, abolished feudalism across conquered territories, and stirred nationalist movements. His defeat at Waterloo (1815) led to a generation of conservative reaction." },
 
-  { id:'e_communist_manifesto', name:'Communist Manifesto', year:1848, minTier:5, cat:'politics',   imp:0.82,
+  { id:'e_communist_manifesto', name:'Communist Manifesto', year:1848, minTier:5, cat:'politics', imp:0.82,
     loc:[51.5,-0.12,9,'London, England'],
     desc:'Marx and Engels publish the manifesto that will inspire socialist revolutions worldwide.',
-    detail:"The Communist Manifesto (1848) by Karl Marx and Friedrich Engels analysed capitalism as a system of class struggle and called for proletarian revolution. It became the foundational text for communist and socialist movements, shaping the politics of the 20th century more than any other pamphlet." },
+    detail:"The Communist Manifesto (1848) analysed capitalism as a system of class struggle and called for proletarian revolution. It became the foundational text for communist and socialist movements, shaping 20th-century politics." },
 
-  { id:'e_darwin',       name:'Darwin: Origin of Species', year:1859,  minTier:5, cat:'biology',    imp:0.95,
+  { id:'e_darwin', name:'Darwin: Origin of Species', year:1859, minTier:5, cat:'biology', imp:0.95,
     loc:[51.34,0.04,11,'Down House, England'],
     desc:"Darwin's theory of evolution by natural selection transforms biology.",
     detail:"On the Origin of Species (1859) proposed that species evolve through natural selection. Combined with Mendelian genetics and DNA science, it created the modern evolutionary synthesis — the unifying framework of all life sciences." },
 
-  { id:'e_us_civil_war', name:'US Civil War',            year:1861,    minTier:5, cat:'conflict',   imp:0.85,
+  { id:'e_us_civil_war', name:'US Civil War', year:1861, minTier:5, cat:'conflict', imp:0.85,
+    span:[1861,1865],
     loc:[38.9,-77.04,5,'USA'],
     desc:'The bloodiest American conflict ends slavery and reshapes the nation.',
-    detail:"The Civil War (1861–1865) killed 620,000–850,000 people — more than all other American wars combined. The Union victory and the 13th Amendment (1865) abolished slavery but left unresolved tensions over racial equality that would define American politics for another 160 years." },
+    detail:"The Civil War (1861–1865) killed 620,000–850,000 people. The Union victory and 13th Amendment (1865) abolished slavery, though unresolved tensions over racial equality would define American politics for another 160 years." },
 
-  { id:'e_germ_theory',  name:'Germ Theory of Disease',  year:1861,    minTier:5, cat:'biology',    imp:0.9,
+  { id:'e_germ_theory', name:'Germ Theory of Disease', year:1861, minTier:5, cat:'biology', imp:0.9,
     loc:[48.85,2.35,9,'Paris, France'],
     desc:'Pasteur and Koch prove microorganisms cause infectious disease.',
-    detail:"Pasteur's experiments (1861) and Koch's bacterial identifications (1876–1884) established germ theory. This led to vaccines, antiseptic surgery, public health systems, and eventually antibiotics — collectively saving hundreds of millions of lives." },
+    detail:"Pasteur's experiments (1861) and Koch's bacterial identifications established germ theory, leading to vaccines, antiseptic surgery, public health systems, and eventually antibiotics — collectively saving hundreds of millions of lives." },
 
-  { id:'e_abolition',    name:'Abolition of Slavery',    year:1863,    minTier:5, cat:'politics',   imp:0.9,
+  { id:'e_abolition', name:'Abolition of Slavery (US)', year:1863, minTier:5, cat:'politics', imp:0.9,
     loc:[38.9,-77.04,6,'Washington DC, USA'],
     desc:'US Emancipation Proclamation; abolitionism spreads worldwide.',
-    detail:"The US Emancipation Proclamation (1863) and 13th Amendment (1865) ended American slavery after a devastating Civil War. Britain abolished slavery in 1833, Brazil in 1888. The movement dismantled an institution that had persisted across all of recorded history." },
+    detail:"The US Emancipation Proclamation (1863) and 13th Amendment (1865) ended American slavery. Britain abolished slavery in 1833, Brazil in 1888. The movement dismantled an institution that had persisted across all of recorded history." },
 
-  { id:'e_suez_canal',   name:'Suez Canal Opens',        year:1869,    minTier:5, cat:'technology', imp:0.74,
+  { id:'e_suez_canal', name:'Suez Canal Opens', year:1869, minTier:5, cat:'technology', imp:0.74,
     loc:[30.42,32.35,8,'Suez Canal, Egypt'],
     desc:'The Suez Canal connects the Mediterranean to the Red Sea, transforming global trade.',
-    detail:"The Suez Canal (1869) cut 7,000 km off the Europe–Asia voyage. It shifted the centre of global maritime trade and gave Britain strategic control over access to India. Its 1956 nationalisation by Egypt triggered the Suez Crisis and marked the end of European colonial power." },
+    detail:"The Suez Canal (1869) cut 7,000 km off the Europe–Asia voyage. Its 1956 nationalisation triggered the Suez Crisis and marked the end of European colonial power." },
 
-  { id:'e_phone',        name:'Telephone & Electricity', year:1876,    minTier:5, cat:'technology', imp:0.85,
+  { id:'e_phone', name:'Telephone & Electricity', year:1876, minTier:5, cat:'technology', imp:0.85,
     loc:[42.36,-71.06,10,'Boston, USA'],
     desc:'Bell patents the telephone; Edison electrifies cities.',
-    detail:"Alexander Graham Bell patented the telephone in 1876. Thomas Edison opened the first commercial electrical power station in 1882. These inventions began the telecommunications era and the electrification of daily life, transforming economies and cities." },
+    detail:"Alexander Graham Bell patented the telephone in 1876. Thomas Edison opened the first commercial electrical power station in 1882, beginning the telecommunications era." },
 
-  { id:'e_wright',       name:'First Powered Flight',    year:1903,    minTier:5, cat:'technology', imp:0.9,
+  { id:'e_wright', name:'First Powered Flight', year:1903, minTier:5, cat:'technology', imp:0.9,
     loc:[36.01,-75.71,13,'Kitty Hawk, USA'],
     desc:'The Wright brothers achieve the first sustained powered airplane flight.',
-    detail:"Orville Wright's 12-second, 36-meter flight at Kitty Hawk (December 17, 1903) launched the aviation era. Within 66 years humans had landed on the Moon. Commercial aviation would make global travel routine and transform commerce, warfare, and cultural exchange." },
+    detail:"Orville Wright's 12-second, 36-meter flight at Kitty Hawk (December 17, 1903) launched the aviation era. Within 66 years humans had landed on the Moon." },
 
-  { id:'e_relativity',   name:"Einstein's Relativity",   year:1905,    minTier:5, cat:'technology', imp:0.88,
+  { id:'e_relativity', name:"Einstein's Relativity", year:1905, minTier:5, cat:'technology', imp:0.88,
     loc:[46.95,7.44,11,'Bern, Switzerland'],
     desc:"Einstein's special relativity revolutionises physics and our understanding of space and time.",
-    detail:"In his 'miracle year' (1905), Einstein published special relativity (E=mc²), the photoelectric effect, and Brownian motion — three papers that each transformed physics. General relativity (1915) redefined gravity as spacetime curvature, later confirmed by GPS satellites and gravitational wave detectors." },
+    detail:"In his 'miracle year' (1905), Einstein published special relativity (E=mc²), the photoelectric effect, and Brownian motion. General relativity (1915) redefined gravity as spacetime curvature." },
 
-  { id:'e_wwi',          name:'World War I',             year:1914,    minTier:5, cat:'conflict',   imp:0.95,
+  { id:'e_wwi', name:'World War I', year:1914, minTier:5, cat:'conflict', imp:0.95,
+    span:[1914,1918],
     loc:[49.0,3.0,5,'Western Front, France'],
     desc:'The Great War kills 20 million; four empires collapse.',
-    detail:'World War I (1914–1918) involved 30 nations and killed 20 million people. Four empires (Ottoman, Austro-Hungarian, Russian, German) collapsed. The war pioneered industrialised slaughter and left a broken international order that made WWII inevitable.' },
+    detail:'World War I (1914–1918) involved 30 nations and killed 20 million people. Four empires (Ottoman, Austro-Hungarian, Russian, German) collapsed. It pioneered industrialised slaughter and made WWII inevitable.' },
 
-  { id:'e_rus_rev',      name:'Russian Revolution',      year:1917,    minTier:5, cat:'politics',   imp:0.9,
+  { id:'e_rus_rev', name:'Russian Revolution', year:1917, minTier:5, cat:'politics', imp:0.9,
     loc:[59.93,30.32,10,'St. Petersburg, Russia'],
     desc:"The Bolsheviks seize power, creating the world's first communist state.",
-    detail:"The Russian Revolution of 1917 overthrew Tsar Nicholas II (February) and the Provisional Government (October). Lenin's USSR became one of the two 20th-century superpowers, engaging in a Cold War with the West that shaped global politics for 70 years." },
+    detail:"The Russian Revolution of 1917 overthrew Tsar Nicholas II and the Provisional Government. Lenin's USSR became one of the two 20th-century superpowers." },
 
-  { id:'e_spanish_flu',  name:'Spanish Flu',             year:1918,    minTier:5, cat:'biology',    imp:0.86,
+  { id:'e_spanish_flu', name:'Spanish Flu', year:1918, minTier:5, cat:'biology', imp:0.86,
     loc:null,
     desc:'The deadliest pandemic since the Black Death kills 50–100 million worldwide.',
-    detail:"The 1918 influenza pandemic infected ~500 million people (one-third of humanity) and killed 50–100 million — more than WWI. It struck hardest at the young and healthy, collapsing healthcare systems. Its lessons shaped global pandemic preparedness for a century." },
+    detail:"The 1918 influenza pandemic infected ~500 million people and killed 50–100 million. It struck hardest at the young and healthy, collapsing healthcare systems worldwide." },
 
-  { id:'e_womens_suffrage', name:"Women's Suffrage",     year:1920,    minTier:5, cat:'politics',   imp:0.82,
+  { id:'e_womens_suffrage', name:"Women's Suffrage", year:1920, minTier:5, cat:'politics', imp:0.82,
     loc:[38.9,-77.04,5,'USA'],
     desc:'The 19th Amendment grants American women the right to vote.',
-    detail:"The 19th Amendment (1920) gave American women the vote after a 70-year campaign. New Zealand was first (1893), followed by Australia (1902) and the UK (1918). Women's suffrage was one of the great democratic expansions of the 20th century, though many women of colour faced continued disenfranchisement." },
+    detail:"The 19th Amendment (1920) gave American women the vote after a 70-year campaign. New Zealand was first (1893); women's suffrage was one of the great democratic expansions of the 20th century." },
 
-  { id:'e_depression',   name:'The Great Depression',    year:1929,    minTier:5, cat:'society',    imp:0.85,
+  { id:'e_depression', name:'The Great Depression', year:1929, minTier:5, cat:'society', imp:0.85,
+    span:[1929,1939],
     loc:[40.71,-74.01,10,'New York, USA'],
     desc:'The worst economic crisis in modern history devastates global economies.',
-    detail:"The Wall Street Crash (October 1929) triggered a global depression. US GDP fell 30%, unemployment hit 25%, international trade collapsed. The Depression destabilised democracies, fuelled fascism in Europe, and redefined the role of government in managing economies." },
+    detail:"The Wall Street Crash (October 1929) triggered a global depression. US GDP fell 30%, unemployment hit 25%. The Depression destabilised democracies, fuelled fascism, and redefined the role of government." },
 
-  { id:'e_wwii',         name:'World War II',            year:1939,    minTier:5, cat:'conflict',   imp:1.0,
+  { id:'e_wwii', name:'World War II', year:1939, minTier:5, cat:'conflict', imp:1.0,
+    span:[1939,1945],
     loc:[52.52,13.4,4,'Europe / Pacific'],
     desc:'The deadliest conflict in history: 70–85 million deaths, Holocaust, atomic bombs.',
-    detail:"World War II (1939–1945) killed 70–85 million people — 3% of the 1940 world population. It included the Holocaust (6 million Jews murdered), the atomic bombing of Hiroshima and Nagasaki, and created the US–Soviet superpower rivalry that defined the next 50 years." },
+    detail:"World War II (1939–1945) killed 70–85 million people — 3% of the 1940 world population. It included the Holocaust (6 million Jews murdered) and the atomic bombings, creating the US–Soviet superpower rivalry." },
 
-  { id:'e_hiroshima',    name:'Hiroshima & Nagasaki',    year:1945,    minTier:5, cat:'conflict',   imp:0.90,
+  { id:'e_hiroshima', name:'Hiroshima & Nagasaki', year:1945, minTier:5, cat:'conflict', imp:0.90,
     loc:[34.39,132.45,10,'Hiroshima, Japan'],
     desc:'The first atomic bombs used in war kill 100,000+ and usher in the nuclear age.',
-    detail:"On August 6, 1945, the US dropped 'Little Boy' on Hiroshima (70,000–80,000 dead immediately); three days later 'Fat Man' destroyed Nagasaki. Japan surrendered on August 15. The atomic age began, with humanity now possessing the power to end civilisation." },
+    detail:"On August 6, 1945, 'Little Boy' destroyed Hiroshima (70,000–80,000 dead immediately); 'Fat Man' destroyed Nagasaki three days later. Japan surrendered; the nuclear age began." },
 
-  { id:'e_un',           name:'United Nations Founded',  year:1945,    minTier:5, cat:'politics',   imp:0.85,
+  { id:'e_un', name:'United Nations Founded', year:1945, minTier:5, cat:'politics', imp:0.85,
     loc:[40.75,-73.97,12,'New York, USA'],
     desc:'The UN is created to promote international peace and human rights.',
-    detail:"The United Nations, founded in 1945 by 51 nations (now 193), replaced the failed League of Nations. The UN produced the Universal Declaration of Human Rights (1948) and established international bodies for health (WHO), education (UNESCO), and children (UNICEF)." },
+    detail:"The United Nations, founded in 1945 by 51 nations (now 193), produced the Universal Declaration of Human Rights (1948) and established the WHO, UNESCO, and UNICEF." },
 
-  { id:'e_decolonise',   name:'Decolonisation Wave',     year:1947,    minTier:5, cat:'politics',   imp:0.9,
+  { id:'e_decolonise', name:'Decolonisation Wave', year:1947, minTier:5, cat:'politics', imp:0.9,
+    span:[1947,1975],
     loc:[28.6,77.2,6,'New Delhi, India'],
     desc:'India and dozens of nations gain independence from colonial powers.',
-    detail:"Indian independence (1947) began a global wave of decolonisation. By 1975, the British, French, Dutch, Belgian, and Portuguese empires had largely dissolved, creating over 60 new nations in Africa and Asia." },
+    detail:"Indian independence (1947) began a global wave. By 1975, the British, French, Dutch, Belgian, and Portuguese empires had largely dissolved, creating over 60 new nations in Africa and Asia." },
 
-  { id:'e_china_prc',    name:'PRC Founded',             year:1949,    minTier:5, cat:'politics',   imp:0.83,
+  { id:'e_china_prc', name:'PRC Founded', year:1949, minTier:5, cat:'politics', imp:0.83,
     loc:[39.91,116.39,9,'Beijing, China'],
-    desc:'Mao Zedong proclaims the People\'s Republic of China, reshaping Asia.',
-    detail:"On October 1, 1949, Mao Zedong proclaimed the PRC after defeating the Nationalists. The world's most populous nation became communist, reshaping Cold War dynamics. China's subsequent transformation — from the Cultural Revolution to economic superpower — is the defining story of the late 20th century." },
+    desc:"Mao Zedong proclaims the People's Republic of China, reshaping Asia.",
+    detail:"On October 1, 1949, Mao proclaimed the PRC after defeating the Nationalists. China's subsequent transformation — from the Cultural Revolution to economic superpower — is the defining story of the late 20th century." },
 
-  { id:'e_dna',          name:'DNA Structure Discovered', year:1953,   minTier:5, cat:'biology',    imp:0.95,
+  { id:'e_dna', name:'DNA Structure Discovered', year:1953, minTier:5, cat:'biology', imp:0.95,
     loc:[52.21,0.12,12,'Cambridge, England'],
     desc:'Watson and Crick reveal the double-helix structure of DNA.',
-    detail:"Watson and Crick (building on Rosalind Franklin's X-ray work) described the double-helix in 1953. This explained how genetic information is stored and replicated, launching molecular biology, genetic engineering, gene therapy, and the sequencing of the human genome." },
+    detail:"Watson and Crick (building on Rosalind Franklin's X-ray work) described the double-helix in 1953. This launched molecular biology, genetic engineering, gene therapy, and the sequencing of the human genome." },
 
-  { id:'e_civil_rights', name:'Civil Rights Movement',   year:1955,    minTier:5, cat:'politics',   imp:0.9,
+  { id:'e_civil_rights', name:'Civil Rights Movement', year:1955, minTier:5, cat:'politics', imp:0.9,
+    span:[1954,1968],
     loc:[32.37,-86.3,7,'Montgomery, Alabama, USA'],
     desc:'Martin Luther King Jr. leads the fight against racial segregation in the US.',
-    detail:"The US Civil Rights Movement (1954–1968) used nonviolent protest and legal challenges to dismantle racial segregation. The Civil Rights Act (1964) and Voting Rights Act (1965) followed, influencing anti-apartheid and human rights movements globally." },
+    detail:"The US Civil Rights Movement (1954–1968) used nonviolent protest to dismantle racial segregation. The Civil Rights Act (1964) and Voting Rights Act (1965) followed, influencing human rights movements globally." },
 
-  { id:'e_space',        name:'Space Age & Sputnik',     year:1957,    minTier:5, cat:'technology', imp:0.9,
+  { id:'e_space', name:'Space Age & Sputnik', year:1957, minTier:5, cat:'technology', imp:0.9,
     loc:[45.97,63.11,9,'Baikonur, Kazakhstan'],
     desc:'The USSR launches Sputnik; the Space Age begins.',
-    detail:"Sputnik (1957) launched the Space Age and the superpower Space Race. Apollo 11 (1969) landed humans on the Moon. Space exploration produced satellites, GPS, weather forecasting, and the overview effect — humanity seeing Earth as a fragile, unified whole." },
+    detail:"Sputnik (1957) launched the Space Age and the superpower Space Race. Apollo 11 (1969) landed humans on the Moon. Space exploration produced satellites, GPS, weather forecasting, and the overview effect." },
 
-  { id:'e_cuban_missile', name:'Cuban Missile Crisis',   year:1962,    minTier:5, cat:'conflict',   imp:0.82,
+  { id:'e_cuban_missile', name:'Cuban Missile Crisis', year:1962, minTier:5, cat:'conflict', imp:0.82,
     loc:[23.0,-80.0,7,'Cuba'],
     desc:'The US and USSR come closest to nuclear war during 13 days of crisis.',
-    detail:"In October 1962, US spy planes found Soviet nuclear missiles in Cuba. For 13 days, nuclear war seemed imminent. Diplomatic back-channels brokered a deal: Soviets withdrew missiles, US pledged not to invade Cuba. The closest humanity has come to self-annihilation." },
+    detail:"In October 1962, US spy planes found Soviet nuclear missiles in Cuba. For 13 days, nuclear war seemed imminent. Diplomatic back-channels brokered a deal — the closest humanity has come to self-annihilation." },
 
-  { id:'e_vietnam',      name:'Vietnam War',             year:1965,    minTier:5, cat:'conflict',   imp:0.78,
+  { id:'e_vietnam', name:'Vietnam War', year:1965, minTier:5, cat:'conflict', imp:0.78,
+    span:[1965,1975],
     loc:[16.05,108.22,6,'Vietnam'],
-    desc:'The Cold War\'s most divisive proxy conflict reshapes US foreign policy.',
-    detail:"US involvement in Vietnam (1965–1975) cost 58,000 American and ~3 million Vietnamese lives. Widespread media coverage and anti-war protests undermined public trust in government, ending the post-WWII consensus on US foreign policy and shaping every military intervention since." },
+    desc:"The Cold War's most divisive proxy conflict reshapes US foreign policy.",
+    detail:"US involvement in Vietnam (1965–1975) cost 58,000 American and ~3 million Vietnamese lives. Widespread media coverage and anti-war protests ended the post-WWII consensus on US foreign policy." },
 
-  { id:'e_moon',         name:'Moon Landing',            year:1969,    minTier:5, cat:'technology', imp:1.0,
+  { id:'e_moon', name:'Moon Landing', year:1969, minTier:5, cat:'technology', imp:1.0,
     loc:[28.57,-80.65,11,'Kennedy Space Center, USA'],
     desc:'Apollo 11 — Neil Armstrong becomes the first human to walk on the Moon.',
-    detail:"On July 20, 1969, Neil Armstrong and Buzz Aldrin landed on the Moon. Broadcast live to ~600 million viewers, achieved 66 years after the first powered flight, the Moon landing remains the single most dramatic demonstration of human technological capability." },
+    detail:"On July 20, 1969, Neil Armstrong and Buzz Aldrin landed on the Moon. Broadcast live to ~600 million viewers, achieved 66 years after the first powered flight." },
 
-  { id:'e_microchip',    name:'Microprocessor Invented', year:1971,    minTier:5, cat:'technology', imp:0.95,
+  { id:'e_microchip', name:'Microprocessor Invented', year:1971, minTier:5, cat:'technology', imp:0.95,
     loc:[37.39,-122.04,11,'Santa Clara, USA'],
     desc:"Intel's 4004 chip launches the era of personal computing.",
-    detail:"Intel's 4004 (1971) was the first commercial microprocessor — a complete CPU on a single chip. It enabled progressively smaller and cheaper computers, from the Apple II (1977) to the IBM PC (1981), and ultimately smartphones with more power than the 1969 Moon mission." },
+    detail:"Intel's 4004 (1971) was the first commercial microprocessor. It enabled progressively smaller and cheaper computers, from the Apple II (1977) to the IBM PC (1981), and ultimately smartphones." },
 
-  { id:'e_aids',         name:'AIDS Epidemic',           year:1981,    minTier:5, cat:'biology',    imp:0.85,
+  { id:'e_aids', name:'AIDS Epidemic', year:1981, minTier:5, cat:'biology', imp:0.85,
     loc:[34.05,-118.24,9,'Los Angeles, USA'],
     desc:'HIV/AIDS kills 40+ million; reshapes medicine, activism, and public health.',
-    detail:"The AIDS epidemic, identified in 1981, was caused by HIV spreading via blood and sexual contact. By 2023, ~40 million had died. Antiretroviral therapy (1996) made AIDS manageable and transformed the speed of drug development globally." },
+    detail:"The AIDS epidemic, identified in 1981, caused ~40 million deaths by 2023. Antiretroviral therapy (1996) made it manageable and transformed the speed of drug development globally." },
 
-  { id:'e_chernobyl',    name:'Chernobyl Disaster',      year:1986,    minTier:5, cat:'environment', imp:0.79,
+  { id:'e_chernobyl', name:'Chernobyl Disaster', year:1986, minTier:5, cat:'environment', imp:0.79,
     loc:[51.39,30.10,10,'Chernobyl, Ukraine'],
     desc:'The worst nuclear accident in history exposes the dangers of nuclear power.',
-    detail:"On April 26, 1986, reactor 4 at Chernobyl exploded, releasing 400× the radiation of Hiroshima. 350,000 people were evacuated; an exclusion zone persists. The disaster accelerated the collapse of the USSR and transformed global attitudes toward nuclear power." },
+    detail:"On April 26, 1986, reactor 4 at Chernobyl exploded, releasing 400× the radiation of Hiroshima. 350,000 people were evacuated. The disaster accelerated the collapse of the USSR." },
 
-  { id:'e_berlin_wall',  name:'Berlin Wall Falls',       year:1989,    minTier:5, cat:'politics',   imp:0.86,
+  { id:'e_berlin_wall', name:'Berlin Wall Falls', year:1989, minTier:5, cat:'politics', imp:0.86,
     loc:[52.52,13.38,11,'Berlin, Germany'],
     desc:'The fall of the Berlin Wall signals the end of communist Eastern Europe.',
-    detail:"On November 9, 1989, East Germany opened its border checkpoints and crowds tore down the Berlin Wall. The defining image of the Cold War's end, it triggered the collapse of communist governments across Eastern Europe and set the stage for German reunification (1990)." },
+    detail:"On November 9, 1989, East Germany opened its borders and crowds tore down the Wall. It triggered the collapse of communist governments across Eastern Europe and German reunification (1990)." },
 
-  { id:'e_www',          name:'World Wide Web Invented', year:1989,    minTier:5, cat:'technology', imp:1.0,
+  { id:'e_www', name:'World Wide Web Invented', year:1989, minTier:5, cat:'technology', imp:1.0,
     loc:[46.23,6.05,12,'CERN, Geneva, Switzerland'],
     desc:'Tim Berners-Lee invents the web; the information age begins.',
     detail:"Tim Berners-Lee invented the World Wide Web at CERN in 1989. The first website went live in 1991. The web has since transformed commerce, media, politics, education, and nearly every other domain of human life." },
 
-  { id:'e_ussr',         name:'USSR Collapse',           year:1991,    minTier:5, cat:'politics',   imp:0.9,
+  { id:'e_ussr', name:'USSR Collapse', year:1991, minTier:5, cat:'politics', imp:0.9,
     loc:[55.75,37.62,8,'Moscow, Russia'],
     desc:'The Soviet Union dissolves; the Cold War ends.',
-    detail:"The fall of the Berlin Wall (1989) and dissolution of the USSR (December 1991) ended the Cold War. 15 new nations emerged. The post-Cold War era brought new challenges: ethnic conflict, resurgent nationalism, and the rise of China as a global power." },
+    detail:"The dissolution of the USSR (December 1991) ended the Cold War. 15 new nations emerged. The post-Cold War era brought new challenges: ethnic conflict, resurgent nationalism, and the rise of China." },
 
-  { id:'e_apartheid_end', name:'End of Apartheid',       year:1994,    minTier:5, cat:'politics',   imp:0.82,
+  { id:'e_apartheid_end', name:'End of Apartheid', year:1994, minTier:5, cat:'politics', imp:0.82,
     loc:[-33.93,18.42,8,'Cape Town, South Africa'],
-    desc:'Nelson Mandela becomes South Africa\'s first Black president.',
-    detail:"Nelson Mandela's election as South Africa's first Black president (May 1994) ended 46 years of apartheid — a system of racial segregation enforced by law. Mandela, who had spent 27 years in prison, led a largely peaceful transition through the Truth and Reconciliation Commission." },
+    desc:"Nelson Mandela becomes South Africa's first Black president.",
+    detail:"Nelson Mandela's election (May 1994) ended 46 years of apartheid. Mandela, who had spent 27 years in prison, led a largely peaceful transition through the Truth and Reconciliation Commission." },
 
-  { id:'e_genome',       name:'Human Genome Sequenced',  year:2003,    minTier:5, cat:'biology',    imp:0.9,
+  { id:'e_genome', name:'Human Genome Sequenced', year:2003, minTier:5, cat:'biology', imp:0.9,
     loc:[39.0,-77.1,10,'Bethesda, USA'],
     desc:'The Human Genome Project maps all 3 billion base pairs of human DNA.',
-    detail:"The Human Genome Project (1990–2003), a $3 billion international effort, enabled personalised medicine, CRISPR gene editing, and genetic screening for inherited disease, with profound implications for human health and identity." },
+    detail:"The Human Genome Project (1990–2003) enabled personalised medicine, CRISPR gene editing, and genetic screening for inherited disease." },
 
-  { id:'e_911',          name:'9/11 Attacks',            year:2001,    minTier:5, cat:'conflict',   imp:0.9,
+  { id:'e_911', name:'9/11 Attacks', year:2001, minTier:5, cat:'conflict', imp:0.9,
     loc:[40.71,-74.01,12,'New York City, USA'],
     desc:'Al-Qaeda attacks kill ~3,000; the War on Terror begins.',
-    detail:"The September 11, 2001 attacks killed 2,977 people and triggered the War on Terror. US-led invasions of Afghanistan (2001) and Iraq (2003), mass surveillance programmes, and reshaped airport security all followed." },
+    detail:"The September 11, 2001 attacks killed 2,977 people and triggered the War on Terror. US-led invasions of Afghanistan (2001) and Iraq (2003), mass surveillance programmes, and reshaped airport security followed." },
 
-  { id:'e_iphone',       name:'Smartphone Era Begins',   year:2007,    minTier:5, cat:'technology', imp:0.9,
+  { id:'e_iphone', name:'Smartphone Era Begins', year:2007, minTier:5, cat:'technology', imp:0.9,
     loc:[37.33,-122.03,12,'Cupertino, USA'],
     desc:'Apple launches the iPhone; the smartphone revolution changes everyday life.',
     detail:"Steve Jobs unveiled the iPhone in January 2007. Today, over 6 billion smartphones are in use, putting global communication, navigation, commerce, and knowledge in every pocket." },
 
-  { id:'e_financial_crisis', name:'Global Financial Crisis', year:2008, minTier:5, cat:'society',  imp:0.78,
+  { id:'e_financial_crisis', name:'Global Financial Crisis', year:2008, minTier:5, cat:'society', imp:0.78,
     loc:[40.71,-74.01,11,'Wall Street, New York, USA'],
-    desc:'The collapse of Lehman Brothers triggers the worst financial crisis since 1929.',
-    detail:"The 2008 financial crisis, rooted in US subprime mortgage collapse, wiped out $10 trillion in global wealth. Governments spent ~$10 trillion in bailouts. The crisis revealed systemic fragility, fuelled inequality, and generated a decade of political populism worldwide." },
+    desc:'The collapse of Lehman Brothers triggers the worst crisis since 1929.',
+    detail:"The 2008 financial crisis wiped out $10 trillion in global wealth. It fuelled inequality and a decade of political populism, permanently changing attitudes toward banks and global finance." },
 
-  { id:'e_arab_spring',  name:'Arab Spring',             year:2011,    minTier:5, cat:'politics',   imp:0.76,
+  { id:'e_arab_spring', name:'Arab Spring', year:2011, minTier:5, cat:'politics', imp:0.76,
     loc:[36.82,10.17,7,'Tunis, Tunisia'],
-    desc:'Mass uprisings sweep the Arab world, toppling governments across North Africa and the Middle East.',
-    detail:"Beginning with the Tunisian Revolution (December 2010), the Arab Spring brought down governments in Tunisia, Egypt, Libya, and Yemen. Inspired by social media and a shared desire for dignity and democracy, the movements produced mixed results: democracy in Tunisia, civil wars in Libya and Syria." },
+    desc:'Mass uprisings sweep the Arab world, toppling governments.',
+    detail:"Beginning with the Tunisian Revolution (December 2010), the Arab Spring brought down governments in Tunisia, Egypt, Libya, and Yemen, producing democracy in Tunisia but civil wars in Libya and Syria." },
 
-  { id:'e_crispr',       name:'CRISPR Gene Editing',     year:2012,    minTier:5, cat:'biology',    imp:0.82,
+  { id:'e_crispr', name:'CRISPR Gene Editing', year:2012, minTier:5, cat:'biology', imp:0.82,
     loc:[37.87,-122.26,11,'Berkeley, USA'],
     desc:'CRISPR-Cas9 makes precise gene editing fast, cheap, and accessible.',
-    detail:"Jennifer Doudna and Emmanuelle Charpentier's 2012 paper (Nobel Prize 2020) described CRISPR-Cas9 as a programmable gene editor. It has since been used to treat sickle cell disease, develop cancer therapies, engineer pest-resistant crops, and raise profound ethical questions about designer genetics." },
+    detail:"Doudna and Charpentier's 2012 paper (Nobel Prize 2020) described CRISPR-Cas9 as a programmable gene editor — used to treat sickle cell disease, develop cancer therapies, and engineer crops." },
 
-  { id:'e_paris',        name:'Paris Climate Agreement', year:2015,    minTier:5, cat:'environment', imp:0.9,
+  { id:'e_paris', name:'Paris Climate Agreement', year:2015, minTier:5, cat:'environment', imp:0.9,
     loc:[48.85,2.35,11,'Paris, France'],
     desc:'196 nations unite around limiting global warming to 1.5–2°C.',
     detail:'The Paris Agreement (2015) committed signatories to limiting temperature rise to 1.5–2°C above pre-industrial levels. Climate change became the defining long-term challenge of the 21st century.' },
 
-  { id:'e_covid',        name:'COVID-19 Pandemic',       year:2020,    minTier:5, cat:'biology',    imp:0.95,
+  { id:'e_covid', name:'COVID-19 Pandemic', year:2020, minTier:5, cat:'biology', imp:0.95,
     loc:[30.59,114.30,10,'Wuhan, China'],
     desc:'SARS-CoV-2 kills 7+ million; reshapes work, health, and society.',
-    detail:"COVID-19 spread globally from late 2019. By 2023, it had caused 7+ million confirmed deaths (true excess mortality ~15–20 million). The pandemic produced the first mRNA vaccines and revealed deep inequalities in global healthcare." },
+    detail:"COVID-19 spread globally from late 2019. By 2023, it caused 7+ million confirmed deaths (true excess ~15–20 million). The pandemic produced the first mRNA vaccines." },
 
-  { id:'e_ai',           name:'AI Revolution',           year:2022,    minTier:5, cat:'technology', imp:0.95,
+  { id:'e_ai', name:'AI Revolution', year:2022, minTier:5, cat:'technology', imp:0.95,
     loc:[37.39,-122.08,10,'San Francisco, USA'],
     desc:'Large language models bring AI capabilities into the mainstream.',
-    detail:"OpenAI's ChatGPT (2022) demonstrated that large language models could reason, write, and code at near-human levels. This sparked massive investment across every sector, raising urgent questions about automation, misinformation, and long-term existential risk." },
+    detail:"OpenAI's ChatGPT (2022) demonstrated that large language models could reason, write, and code at near-human levels. This sparked massive investment and urgent questions about automation and existential risk." },
 ];
 
 const ERA_JUMPS = [
-  { label:'All History',  min:-300000, max:2026   },
-  { label:'Prehistoric',  min:-300000, max:-8000  },
-  { label:'Ancient',      min:-8000,   max:600    },
-  { label:'Medieval',     min:600,     max:1500   },
-  { label:'Early Modern', min:1500,    max:1800   },
-  { label:'Modern',       min:1800,    max:2026   },
+  { label:'All History',  min:-300000, max:2026  },
+  { label:'Prehistoric',  min:-300000, max:-8000 },
+  { label:'Ancient',      min:-8000,   max:600   },
+  { label:'Medieval',     min:600,     max:1500  },
+  { label:'Early Modern', min:1500,    max:1800  },
+  { label:'Modern',       min:1800,    max:2026  },
 ];
 
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
+//  SHAPE HELPERS
+// ═══════════════════════════════════════════════
+
+function drawShapePath(ctx, x, y, r, shape) {
+  ctx.beginPath();
+  switch (shape) {
+    case 'diamond':
+      ctx.moveTo(x, y - r); ctx.lineTo(x + r * 0.85, y);
+      ctx.lineTo(x, y + r); ctx.lineTo(x - r * 0.85, y); ctx.closePath(); break;
+    case 'square': {
+      const s = r * 0.82;
+      ctx.rect(x - s, y - s, s * 2, s * 2); break;
+    }
+    case 'triangle':
+      ctx.moveTo(x, y - r);
+      ctx.lineTo(x + r * 0.9, y + r * 0.72);
+      ctx.lineTo(x - r * 0.9, y + r * 0.72); ctx.closePath(); break;
+    case 'triangle-down':
+      ctx.moveTo(x, y + r);
+      ctx.lineTo(x + r * 0.9, y - r * 0.72);
+      ctx.lineTo(x - r * 0.9, y - r * 0.72); ctx.closePath(); break;
+    case 'star':
+      for (let i = 0; i < 5; i++) {
+        const a = (i * 2 * Math.PI / 5) - Math.PI / 2;
+        const ai = a + Math.PI / 5;
+        const ox = x + r * Math.cos(a), oy = y + r * Math.sin(a);
+        const ix = x + r * 0.42 * Math.cos(ai), iy = y + r * 0.42 * Math.sin(ai);
+        if (i === 0) ctx.moveTo(ox, oy); else ctx.lineTo(ox, oy);
+        ctx.lineTo(ix, iy);
+      } ctx.closePath(); break;
+    case 'hexagon':
+      for (let i = 0; i < 6; i++) {
+        const a = i * Math.PI / 3;
+        const hx = x + r * Math.cos(a), hy = y + r * Math.sin(a);
+        if (i === 0) ctx.moveTo(hx, hy); else ctx.lineTo(hx, hy);
+      } ctx.closePath(); break;
+    case 'pentagon':
+      for (let i = 0; i < 5; i++) {
+        const a = (i * 2 * Math.PI / 5) - Math.PI / 2;
+        const px = x + r * Math.cos(a), py = y + r * Math.sin(a);
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      } ctx.closePath(); break;
+    default: // circle
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+  }
+}
+
+function shapeToSVG(shape, color, sz = 12) {
+  const c = sz / 2, r = sz / 2;
+  let inner = '';
+  switch (shape) {
+    case 'diamond':
+      inner = `<polygon points="${c},0 ${sz},${c} ${c},${sz} 0,${c}" fill="${color}"/>`; break;
+    case 'square': {
+      const s = r * 0.82;
+      inner = `<rect x="${c-s}" y="${c-s}" width="${s*2}" height="${s*2}" fill="${color}"/>`; break;
+    }
+    case 'triangle':
+      inner = `<polygon points="${c},0 ${sz},${sz} 0,${sz}" fill="${color}"/>`; break;
+    case 'triangle-down':
+      inner = `<polygon points="${c},${sz} ${sz},0 0,0" fill="${color}"/>`; break;
+    case 'star': {
+      let pts = '';
+      for (let i = 0; i < 5; i++) {
+        const a = (i * 2 * Math.PI / 5) - Math.PI / 2;
+        const ai = a + Math.PI / 5;
+        pts += `${c + r*Math.cos(a)},${c + r*Math.sin(a)} `;
+        pts += `${c + r*0.42*Math.cos(ai)},${c + r*0.42*Math.sin(ai)} `;
+      }
+      inner = `<polygon points="${pts.trim()}" fill="${color}"/>`; break;
+    }
+    case 'hexagon': {
+      let pts = '';
+      for (let i = 0; i < 6; i++) {
+        const a = i * Math.PI / 3;
+        pts += `${c + r*Math.cos(a)},${c + r*Math.sin(a)} `;
+      }
+      inner = `<polygon points="${pts.trim()}" fill="${color}"/>`; break;
+    }
+    case 'pentagon': {
+      let pts = '';
+      for (let i = 0; i < 5; i++) {
+        const a = (i * 2 * Math.PI / 5) - Math.PI / 2;
+        pts += `${c + r*Math.cos(a)},${c + r*Math.sin(a)} `;
+      }
+      inner = `<polygon points="${pts.trim()}" fill="${color}"/>`; break;
+    }
+    default:
+      inner = `<circle cx="${c}" cy="${c}" r="${r}" fill="${color}"/>`;
+  }
+  return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}" style="overflow:visible">${inner}</svg>`;
+}
+
+// ═══════════════════════════════════════════════
+//  MAP SETUP
+// ═══════════════════════════════════════════════
+
+const leafMap = L.map('map', {
+  center:[25,15], zoom:2,
+  zoomControl:true, attributionControl:false, scrollWheelZoom:false,
+});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  { subdomains:'abcd', maxZoom:19 }).addTo(leafMap);
+
+let mapMarker = null;
+
+function updateMap(ev) {
+  if (mapMarker) { leafMap.removeLayer(mapMarker); mapMarker = null; }
+  const hint = document.getElementById('mapHint');
+  if (!ev || !ev.loc) { hint.classList.remove('hidden'); return; }
+  hint.classList.add('hidden');
+  const [lat, lng, zoom] = ev.loc;
+  const color = (CATS[ev.cat] || { color:'#7c83ff' }).color;
+  const icon = L.divIcon({
+    className:'',
+    html:`<div class="hist-marker" style="background:${color}"></div>`,
+    iconSize:[14,14], iconAnchor:[7,7],
+  });
+  mapMarker = L.marker([lat,lng],{icon}).addTo(leafMap);
+  leafMap.flyTo([lat,lng], zoom, { duration:0.9 });
+}
+
+function clearMapMarker() {
+  if (mapMarker) { leafMap.removeLayer(mapMarker); mapMarker = null; }
+  document.getElementById('mapHint').classList.remove('hidden');
+}
+
+// ── Map resize handle ──
+const mapEl     = document.getElementById('map');
+const mapHandle = document.getElementById('mapResizeHandle');
+let mapResizing = false, mapResizeY0 = 0, mapResizeH0 = 0;
+
+mapHandle.addEventListener('mousedown', e => {
+  e.preventDefault();
+  mapResizing = true; mapResizeY0 = e.clientY; mapResizeH0 = mapEl.offsetHeight;
+  mapHandle.classList.add('dragging');
+  document.body.style.cursor = 'ns-resize';
+});
+window.addEventListener('mousemove', e => {
+  if (!mapResizing) return;
+  const newH = Math.max(60, Math.min(600, mapResizeH0 + (e.clientY - mapResizeY0)));
+  mapEl.style.height = newH + 'px';
+  leafMap.invalidateSize();
+  resize();
+});
+window.addEventListener('mouseup', () => {
+  if (mapResizing) {
+    mapResizing = false;
+    mapHandle.classList.remove('dragging');
+    document.body.style.cursor = '';
+  }
+});
+
+// ═══════════════════════════════════════════════
 //  STATE
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 
 const canvas  = document.getElementById('c');
 const ctx     = canvas.getContext('2d');
@@ -949,68 +1093,15 @@ const tooltip = document.getElementById('tooltip');
 let W = 0, H = 0;
 let scale   = 1;
 let scrollX = 0;
-
-let dragging   = false;
-let dragStartX = 0;
-let dragBaseX  = 0;
-
-let hoveredEv  = null;
-let selectedEv = null;
+let dragging = false, dragStartX = 0, dragBaseX = 0;
+let hoveredEv = null, selectedEv = null;
 let activeCategories = new Set(Object.keys(CATS));
+let filterRelated = false;
 let rafPending = false;
 
-// ═══════════════════════════════════════════════════════════════════
-//  MAP
-// ═══════════════════════════════════════════════════════════════════
-
-const leafMap = L.map('map', {
-  center: [25, 15],
-  zoom: 2,
-  zoomControl: true,
-  attributionControl: false,
-  scrollWheelZoom: false,
-});
-
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-  subdomains: 'abcd',
-  maxZoom: 19,
-}).addTo(leafMap);
-
-let mapMarker = null;
-
-function updateMap(ev) {
-  // Always clear old marker
-  if (mapMarker) { leafMap.removeLayer(mapMarker); mapMarker = null; }
-
-  const hint = document.getElementById('mapHint');
-  if (!ev || !ev.loc) {
-    hint.classList.remove('hidden');
-    return;
-  }
-  hint.classList.add('hidden');
-
-  const [lat, lng, zoom, locName] = ev.loc;
-  const color = (CATS[ev.cat] || { color: '#7c83ff' }).color;
-
-  const icon = L.divIcon({
-    className: '',
-    html: `<div class="hist-marker" style="background:${color}"></div>`,
-    iconSize: [14, 14],
-    iconAnchor: [7, 7],
-  });
-
-  mapMarker = L.marker([lat, lng], { icon }).addTo(leafMap);
-  leafMap.flyTo([lat, lng], zoom, { duration: 0.9 });
-}
-
-function clearMapMarker() {
-  if (mapMarker) { leafMap.removeLayer(mapMarker); mapMarker = null; }
-  document.getElementById('mapHint').classList.remove('hidden');
-}
-
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 //  CORE MATH
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 
 function yearToX(yr) { return (yr - MIN_YEAR) * scale - scrollX; }
 function xToYear(x)  { return MIN_YEAR + (x + scrollX) / scale; }
@@ -1019,7 +1110,7 @@ function axisY()     { return Math.round(H * 0.54); }
 
 function clampScroll() {
   const max = Math.max(0, totalW() - W);
-  scrollX   = Math.max(0, Math.min(scrollX, max));
+  scrollX = Math.max(0, Math.min(scrollX, max));
 }
 
 function zoomAt(factor, cx) {
@@ -1027,18 +1118,14 @@ function zoomAt(factor, cx) {
   const minS = W / (MAX_YEAR - MIN_YEAR) * 0.95;
   scale = Math.max(minS, Math.min(250, scale * factor));
   scrollX = (yr - MIN_YEAR) * scale - cx;
-  clampScroll();
-  scheduleRender();
-  updateScaleBar();
+  clampScroll(); scheduleRender(); updateScaleBar();
 }
 
 function jumpTo(minY, maxY) {
   const pad = (maxY - minY) * 0.04;
   scale   = W / (maxY - minY + pad * 2);
   scrollX = (minY - pad - MIN_YEAR) * scale;
-  clampScroll();
-  scheduleRender();
-  updateScaleBar();
+  clampScroll(); scheduleRender(); updateScaleBar();
 }
 
 function scheduleRender() {
@@ -1061,18 +1148,30 @@ function eventY(ev) {
   return Math.max(H * 0.07, Math.min(H * 0.90, raw));
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 //  VISIBLE EVENTS
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
+
+function isRelatedTo(ev, sel) {
+  if (!sel) return true;
+  if (ev.id === sel.id) return true;
+  if (ev.cat === sel.cat) return true;
+  if (Math.abs(ev.year - sel.year) <= 250) return true;
+  if (sel.span && ev.year >= sel.span[0] && ev.year <= sel.span[1]) return true;
+  if (ev.span  && sel.year >= ev.span[0]  && sel.year <= ev.span[1]) return true;
+  return false;
+}
 
 function visibleEvents() {
   const vMin = xToYear(-50);
   const vMax = xToYear(W + 50);
-  return EVENTS.filter(ev =>
-    scale >= TIER_SCALE[ev.minTier] &&
-    ev.year >= vMin && ev.year <= vMax &&
-    activeCategories.has(ev.cat)
-  );
+  return EVENTS.filter(ev => {
+    if (scale < TIER_SCALE[ev.minTier]) return false;
+    if (ev.year < vMin || ev.year > vMax) return false;
+    if (!activeCategories.has(ev.cat)) return false;
+    if (filterRelated && selectedEv && !isRelatedTo(ev, selectedEv)) return false;
+    return true;
+  });
 }
 
 function labelSet(evs) {
@@ -1092,15 +1191,16 @@ function labelSet(evs) {
   return shown;
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 //  RENDER
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 
 function render() {
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = '#0d0d1a';
   ctx.fillRect(0, 0, W, H);
   drawEraZones();
+  drawSpans();
   drawAxis();
   drawTicks();
   drawEvents();
@@ -1117,12 +1217,64 @@ function drawEraZones() {
     if (vx2 - vx1 < 20) return;
     const lx = Math.max(vx1 + 5, Math.min(vx2 - 5, (vx1 + vx2) / 2));
     ctx.save();
-    ctx.fillStyle    = 'rgba(220,220,255,0.14)';
-    ctx.font         = `bold ${Math.max(10, H * 0.022)}px 'Segoe UI', sans-serif`;
+    ctx.fillStyle    = 'rgba(220,220,255,0.13)';
+    ctx.font         = `bold ${Math.max(10, H * 0.022)}px 'Segoe UI',sans-serif`;
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.fillText(z.label.toUpperCase(), lx, ay - 28);
+    ctx.fillText(z.label.toUpperCase(), lx, axisY() - 30);
     ctx.restore();
+  });
+}
+
+function drawSpans() {
+  const ay    = axisY();
+  const bandH = Math.max(8, Math.min(18, H * 0.022));
+
+  EVENTS.forEach(ev => {
+    if (!ev.span) return;
+    if (!activeCategories.has(ev.cat)) return;
+    if (scale < TIER_SCALE[ev.minTier]) return;
+    if (filterRelated && selectedEv && !isRelatedTo(ev, selectedEv)) return;
+
+    const x1 = yearToX(ev.span[0]), x2 = yearToX(ev.span[1]);
+    if (x2 < 0 || x1 > W) return;
+
+    const rx1 = Math.max(x1, -2), rx2 = Math.min(x2, W + 2);
+    if (rx2 - rx1 < 2) return;
+
+    const color  = (CATS[ev.cat] || { color:'#888' }).color;
+    const isSel  = selectedEv && selectedEv.id === ev.id;
+    const isHov  = hoveredEv  && hoveredEv.id  === ev.id;
+    const fillA  = isSel ? 0.42 : isHov ? 0.32 : 0.18;
+    const edgeA  = isSel ? 0.70 : isHov ? 0.55 : 0.35;
+
+    // Filled band
+    ctx.fillStyle   = color;
+    ctx.globalAlpha = fillA;
+    ctx.fillRect(rx1, ay - bandH / 2, rx2 - rx1, bandH);
+
+    // Top and bottom edges
+    ctx.globalAlpha = edgeA;
+    ctx.fillRect(rx1, ay - bandH / 2, rx2 - rx1, 1);
+    ctx.fillRect(rx1, ay + bandH / 2 - 1, rx2 - rx1, 1);
+
+    // End caps
+    ctx.fillRect(rx2 - 1, ay - bandH / 2, 1, bandH);
+    if (x1 >= 0) ctx.fillRect(rx1, ay - bandH / 2, 1, bandH);
+
+    // Label (only if wide enough)
+    const spanPx = rx2 - rx1;
+    if (spanPx > 55) {
+      ctx.globalAlpha  = Math.min(fillA + 0.2, 0.65);
+      ctx.fillStyle    = color;
+      ctx.font         = `${Math.max(8, Math.min(10, spanPx / ev.name.length * 0.8))}px 'Segoe UI',sans-serif`;
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      const cx = Math.max(rx1 + 4, Math.min(rx2 - 4, (rx1 + rx2) / 2));
+      ctx.fillText(ev.name, cx, ay);
+    }
+
+    ctx.globalAlpha = 1;
   });
 }
 
@@ -1130,16 +1282,11 @@ function drawAxis() {
   const ay = axisY();
   const g  = ctx.createLinearGradient(0, 0, W, 0);
   g.addColorStop(0,    'rgba(100,108,255,0)');
-  g.addColorStop(0.04, 'rgba(100,108,255,.65)');
-  g.addColorStop(0.96, 'rgba(100,108,255,.65)');
+  g.addColorStop(0.04, 'rgba(100,108,255,.60)');
+  g.addColorStop(0.96, 'rgba(100,108,255,.60)');
   g.addColorStop(1,    'rgba(100,108,255,0)');
-  ctx.strokeStyle = g;
-  ctx.lineWidth   = 1.5;
-  ctx.setLineDash([]);
-  ctx.beginPath();
-  ctx.moveTo(0, ay);
-  ctx.lineTo(W, ay);
-  ctx.stroke();
+  ctx.strokeStyle = g; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(0, ay); ctx.lineTo(W, ay); ctx.stroke();
 }
 
 function niceInterval(viewRange, maxTicks) {
@@ -1150,20 +1297,16 @@ function niceInterval(viewRange, maxTicks) {
 
 function drawTicks() {
   const ay       = axisY();
-  const vMin     = xToYear(0);
-  const vMax     = xToYear(W);
+  const vMin     = xToYear(0), vMax = xToYear(W);
   const interval = niceInterval(vMax - vMin, 10);
   const start    = Math.ceil(vMin / interval) * interval;
-  ctx.fillStyle    = 'rgba(150,152,185,0.85)';
-  ctx.font         = `${Math.max(10, H * 0.017)}px 'Segoe UI', sans-serif`;
-  ctx.textAlign    = 'center';
-  ctx.textBaseline = 'top';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.font      = `${Math.max(10, H * 0.017)}px 'Segoe UI',sans-serif`;
   for (let yr = start; yr <= vMax + interval; yr += interval) {
     if (yr < MIN_YEAR || yr > MAX_YEAR) continue;
     const x = yearToX(yr);
     if (x < 18 || x > W - 18) continue;
-    ctx.strokeStyle = 'rgba(100,108,255,0.3)';
-    ctx.lineWidth   = 1;
+    ctx.strokeStyle = 'rgba(100,108,255,0.28)'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(x, ay - 5); ctx.lineTo(x, ay + 5); ctx.stroke();
     ctx.fillStyle = 'rgba(150,152,185,0.85)';
     ctx.fillText(formatYear(yr), x, ay + 9);
@@ -1183,43 +1326,46 @@ function drawEvents() {
     const isHov = hoveredEv  && hoveredEv.id  === ev.id;
     const baseR = Math.max(4, ev.imp * 9.5);
     const r     = baseR * (isSel ? 1.65 : isHov ? 1.35 : 1);
-    const color = (CATS[ev.cat] || {color:'#888'}).color;
+    const color = (CATS[ev.cat] || { color:'#888' }).color;
+    const shape = CAT_SHAPE[ev.cat] || 'circle';
     const thr   = TIER_SCALE[ev.minTier];
     const alpha = thr === 0 ? 1 : Math.min(1, (scale - thr) / (thr * 2.5));
 
     ctx.globalAlpha = alpha * (isSel ? 1 : isHov ? 0.96 : 0.82);
 
+    // Connector line
     ctx.strokeStyle = (isSel || isHov) ? color : 'rgba(190,192,220,0.18)';
-    ctx.lineWidth   = isSel ? 1.5 : 0.7;
-    ctx.setLineDash([3, 4]);
+    ctx.lineWidth   = isSel ? 1.5 : 0.7; ctx.setLineDash([3, 4]);
     ctx.beginPath(); ctx.moveTo(x, ay); ctx.lineTo(x, y); ctx.stroke();
     ctx.setLineDash([]);
 
-    if (isSel || isHov) { ctx.shadowColor = color; ctx.shadowBlur = isSel ? 14 : 9; }
+    if (isSel || isHov) { ctx.shadowColor = color; ctx.shadowBlur = isSel ? 16 : 10; }
 
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
+    // Fill shape
+    drawShapePath(ctx, x, y, r, shape);
+    ctx.fillStyle = color; ctx.fill();
 
-    if (isSel) {
-      ctx.beginPath();
-      ctx.arc(x, y, r + 5, 0, Math.PI * 2);
-      ctx.strokeStyle = color;
-      ctx.lineWidth   = 1.5;
-      ctx.globalAlpha = alpha * 0.45;
-      ctx.stroke();
+    // Stroke shape outline on hover/select
+    if (isSel || isHov) {
+      drawShapePath(ctx, x, y, r, shape);
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.globalAlpha = alpha * 0.4; ctx.stroke();
     }
 
-    ctx.shadowBlur  = 0;
-    ctx.shadowColor = 'transparent';
-    ctx.globalAlpha = 1;
+    // Selection ring (always circular for clarity)
+    if (isSel) {
+      ctx.beginPath(); ctx.arc(x, y, r + 6, 0, Math.PI * 2);
+      ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+      ctx.globalAlpha = alpha * 0.4; ctx.stroke();
+    }
 
+    ctx.shadowBlur = 0; ctx.shadowColor = 'transparent'; ctx.globalAlpha = 1;
+
+    // Label
     if (labels.has(ev.id) || isSel || isHov) {
       const above  = y < ay;
       const labelY = above ? y - r - 5 : y + r + 5;
       ctx.globalAlpha  = alpha * (isSel || isHov ? 1 : 0.85);
-      ctx.font         = `${isSel || isHov ? 'bold ' : ''}${Math.max(9, 9.5 + Math.min(scale * 0.25, 3))}px 'Segoe UI', sans-serif`;
+      ctx.font         = `${isSel || isHov ? 'bold ' : ''}${Math.max(9, 9.5 + Math.min(scale * 0.25, 3))}px 'Segoe UI',sans-serif`;
       ctx.fillStyle    = isSel || isHov ? '#fff' : 'rgba(215,218,245,0.9)';
       ctx.textAlign    = 'center';
       ctx.textBaseline = above ? 'bottom' : 'top';
@@ -1229,36 +1375,51 @@ function drawEvents() {
   });
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 //  FORMAT HELPERS
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 
 function formatYear(y) {
   const abs = Math.abs(Math.round(y));
-  if (y < -999)  return `${abs.toLocaleString()} BCE`;
-  if (y < 0)     return `${abs} BCE`;
+  if (y < -999) return `${abs.toLocaleString()} BCE`;
+  if (y < 0)    return `${abs} BCE`;
   return `${abs} CE`;
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 //  HIT TEST
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 
 function hitTest(mx, my) {
   const evs    = visibleEvents();
   const sorted = [...evs].sort((a, b) => b.imp - a.imp);
   for (const ev of sorted) {
-    const x = yearToX(ev.year);
-    const y = eventY(ev);
+    const x = yearToX(ev.year), y = eventY(ev);
     const r = Math.max(4, ev.imp * 9.5) + 8;
     if ((mx - x) ** 2 + (my - y) ** 2 <= r * r) return ev;
   }
   return null;
 }
 
-// ═══════════════════════════════════════════════════════════════════
+function hitTestSpan(mx, my) {
+  const ay    = axisY();
+  const bandH = Math.max(8, Math.min(18, H * 0.022));
+  if (Math.abs(my - ay) > bandH + 4) return null;
+  const yr = xToYear(mx);
+  // Prefer events that are visible and already known to user
+  const candidates = EVENTS.filter(ev =>
+    ev.span && activeCategories.has(ev.cat) &&
+    scale >= TIER_SCALE[ev.minTier] &&
+    yr >= ev.span[0] && yr <= ev.span[1]
+  );
+  // Return the one with the narrowest span (most specific)
+  if (!candidates.length) return null;
+  return candidates.sort((a, b) => (a.span[1]-a.span[0]) - (b.span[1]-b.span[0]))[0];
+}
+
+// ═══════════════════════════════════════════════
 //  SCALE BAR
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 
 function updateScaleBar() {
   const vMin = xToYear(0), vMax = xToYear(W);
@@ -1268,15 +1429,15 @@ function updateScaleBar() {
   document.getElementById('scaleCount').textContent = `${n} / ${EVENTS.length} events visible`;
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 //  DETAIL PANEL
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 
 function openPanel(ev) {
   selectedEv = ev;
   document.getElementById('panelTitle').textContent = ev.name;
 
-  const cat = CATS[ev.cat] || { label: ev.cat, color: '#888' };
+  const cat = CATS[ev.cat] || { label:ev.cat, color:'#888' };
   document.getElementById('panelMeta').innerHTML = `
     <span class="mtag" style="color:${cat.color};border-color:${cat.color}44">${cat.label}</span>
     <span class="mtag">${formatYear(ev.year)}</span>
@@ -1286,24 +1447,32 @@ function openPanel(ev) {
   if (ev.loc) {
     locEl.innerHTML = `📍 <span style="color:var(--muted)">${ev.loc[3]}</span>`;
     locEl.style.display = 'flex';
-  } else {
-    locEl.style.display = 'none';
-  }
+  } else locEl.style.display = 'none';
+
+  const spanEl = document.getElementById('panelSpan');
+  if (ev.span) {
+    spanEl.innerHTML = `⏳ <span style="color:var(--muted)">${formatYear(ev.span[0])} – ${formatYear(ev.span[1])}</span>`;
+    spanEl.style.display = 'flex';
+  } else spanEl.style.display = 'none';
 
   document.getElementById('panelDesc').textContent   = ev.desc   || '';
   document.getElementById('panelDetail').textContent = ev.detail || '';
 
+  // Related filter button
+  const btn = document.getElementById('btnFilterRelated');
+  btn.classList.toggle('active', filterRelated);
+
   const rel = EVENTS
-    .filter(e => e.id !== ev.id && (e.cat === ev.cat || Math.abs(e.year - ev.year) < 300))
+    .filter(e => e.id !== ev.id && isRelatedTo(e, ev))
     .sort((a, b) => Math.abs(a.year - ev.year) - Math.abs(b.year - ev.year))
-    .slice(0, 5);
+    .slice(0, 6);
 
   const relEl = document.getElementById('panelRel');
   relEl.innerHTML = rel.length
     ? `<div class="psect">Related Events</div>
        <div class="rel-list">${rel.map(r => `
          <div class="rel-item" data-id="${r.id}">
-           <div class="rel-dot" style="background:${(CATS[r.cat]||{color:'#888'}).color}"></div>
+           ${shapeToSVG(CAT_SHAPE[r.cat]||'circle', (CATS[r.cat]||{color:'#888'}).color, 10)}
            <div>
              <div class="rel-name">${r.name}</div>
              <div class="rel-yr">${formatYear(r.year)}</div>
@@ -1320,18 +1489,14 @@ function openPanel(ev) {
   });
 
   panel.classList.add('open');
-
-  // Update map after panel opens (so map has final size)
-  setTimeout(() => {
-    leafMap.invalidateSize();
-    updateMap(ev);
-  }, 230);
-
+  setTimeout(() => { leafMap.invalidateSize(); updateMap(ev); }, 230);
   scheduleRender();
 }
 
 function closePanel() {
   selectedEv = null;
+  filterRelated = false;
+  document.getElementById('btnFilterRelated').classList.remove('active');
   clearMapMarker();
   panel.classList.remove('open');
   setTimeout(() => leafMap.invalidateSize(), 230);
@@ -1342,22 +1507,28 @@ function navigateTo(ev) {
   const needed = TIER_SCALE[ev.minTier];
   if (scale < needed * 1.5) scale = needed * 2.5;
   scrollX = (ev.year - MIN_YEAR) * scale - W / 2;
-  clampScroll();
-  updateScaleBar();
-  openPanel(ev);
+  clampScroll(); updateScaleBar(); openPanel(ev);
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// ── Related filter toggle ──
+document.getElementById('btnFilterRelated').addEventListener('click', () => {
+  filterRelated = !filterRelated;
+  document.getElementById('btnFilterRelated').classList.toggle('active', filterRelated);
+  const note = document.getElementById('filterNote');
+  note.textContent = filterRelated ? 'Showing related events only' : '';
+  scheduleRender(); updateScaleBar();
+});
+
+// ═══════════════════════════════════════════════
 //  TOOLTIP
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 
 function showTooltip(ev, cx, cy) {
   document.getElementById('ttTitle').textContent = ev.name;
   document.getElementById('ttYear').textContent  = formatYear(ev.year);
   document.getElementById('ttDesc').textContent  = ev.desc || '';
   tooltip.classList.add('show');
-  const tw = tooltip.offsetWidth  || 230;
-  const th = tooltip.offsetHeight || 80;
+  const tw = tooltip.offsetWidth || 230, th = tooltip.offsetHeight || 80;
   let tx = cx + 16, ty = cy - th / 2;
   if (tx + tw > window.innerWidth  - 8) tx = cx - tw - 16;
   if (ty < 6)                            ty = 6;
@@ -1367,9 +1538,9 @@ function showTooltip(ev, cx, cy) {
 }
 function hideTooltip() { tooltip.classList.remove('show'); }
 
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 //  INPUT
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 
 canvas.addEventListener('mousedown', e => {
   if (e.button === 0 || e.button === 1) {
@@ -1383,13 +1554,12 @@ canvas.addEventListener('mousedown', e => { if (e.button === 1) e.preventDefault
 window.addEventListener('mouseup', e => {
   if (!dragging) return;
   const moved = Math.abs(e.clientX - dragStartX);
-  dragging = false;
-  canvas.style.cursor = 'grab';
+  dragging = false; canvas.style.cursor = 'grab';
   if (moved < 5 && e.button === 0) {
     const rect = canvas.getBoundingClientRect();
-    const hit  = hitTest(e.clientX - rect.left, e.clientY - rect.top);
-    if (hit) openPanel(hit);
-    else     closePanel();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const hit = hitTest(mx, my) || hitTestSpan(mx, my);
+    if (hit) openPanel(hit); else closePanel();
   }
 });
 
@@ -1404,24 +1574,19 @@ window.addEventListener('mousemove', e => {
     if (hoveredEv) { hoveredEv = null; hideTooltip(); scheduleRender(); }
     return;
   }
-  const hit = hitTest(mx, my);
+  const hit = hitTest(mx, my) || hitTestSpan(mx, my);
   if (hit !== hoveredEv) { hoveredEv = hit; scheduleRender(); }
-  if (hit) {
-    showTooltip(hit, e.clientX, e.clientY);
-    canvas.style.cursor = 'pointer';
-  } else {
-    hideTooltip();
-    canvas.style.cursor = 'grab';
-  }
+  if (hit) { showTooltip(hit, e.clientX, e.clientY); canvas.style.cursor = 'pointer'; }
+  else     { hideTooltip(); canvas.style.cursor = 'grab'; }
 });
 
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
   const rect   = canvas.getBoundingClientRect();
   const cx     = e.clientX - rect.left;
-  const factor = e.deltaY < 0 ? 1.12 : (1 / 1.12);
+  const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
   zoomAt(factor, cx);
-}, { passive: false });
+}, { passive:false });
 
 window.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
@@ -1436,51 +1601,48 @@ window.addEventListener('keydown', e => {
 let _touch = null, _pinch = null;
 canvas.addEventListener('touchstart', e => {
   e.preventDefault();
-  if (e.touches.length === 1) {
-    _touch = { cx: e.touches[0].clientX, sx: scrollX }; _pinch = null;
-  } else if (e.touches.length === 2) {
-    _pinch = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+  if (e.touches.length === 1) { _touch = { cx:e.touches[0].clientX, sx:scrollX }; _pinch = null; }
+  else if (e.touches.length === 2) {
+    _pinch = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
     _touch = null;
   }
-}, { passive: false });
-
+}, { passive:false });
 canvas.addEventListener('touchmove', e => {
   e.preventDefault();
   if (e.touches.length === 1 && _touch) {
     scrollX = _touch.sx - (e.touches[0].clientX - _touch.cx);
     clampScroll(); scheduleRender(); updateScaleBar();
   } else if (e.touches.length === 2 && _pinch != null) {
-    const d   = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-    const mid = (e.touches[0].clientX + e.touches[1].clientX) / 2 - canvas.getBoundingClientRect().left;
-    zoomAt(d / _pinch, mid); _pinch = d;
+    const d   = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    const mid = (e.touches[0].clientX+e.touches[1].clientX)/2 - canvas.getBoundingClientRect().left;
+    zoomAt(d/_pinch, mid); _pinch = d;
   }
-}, { passive: false });
-
+}, { passive:false });
 canvas.addEventListener('touchend', () => { _touch = null; _pinch = null; });
 
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 //  BUILD UI
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 
 function buildUI() {
   const eraBtns = document.getElementById('eraBtns');
   ERA_JUMPS.forEach(e => {
     const btn = document.createElement('button');
-    btn.className   = 'era-btn';
-    btn.textContent = e.label;
+    btn.className = 'era-btn'; btn.textContent = e.label;
     btn.addEventListener('click', () => jumpTo(e.min, e.max));
     eraBtns.appendChild(btn);
   });
 
-  document.getElementById('btnZoomIn').addEventListener('click',  () => zoomAt(1.5, W / 2));
-  document.getElementById('btnZoomOut').addEventListener('click', () => zoomAt(1 / 1.5, W / 2));
+  document.getElementById('btnZoomIn').addEventListener('click',  () => zoomAt(1.5, W/2));
+  document.getElementById('btnZoomOut').addEventListener('click', () => zoomAt(1/1.5, W/2));
   document.getElementById('panelClose').addEventListener('click', closePanel);
 
+  // Legend with actual category shapes
   const legendItems = document.getElementById('legendItems');
   Object.entries(CATS).forEach(([key, cat]) => {
     const item = document.createElement('div');
     item.className = 'legend-item active';
-    item.innerHTML = `<div class="legend-dot" style="background:${cat.color}"></div><span>${cat.label}</span>`;
+    item.innerHTML = shapeToSVG(CAT_SHAPE[key], cat.color, 11) + `<span>${cat.label}</span>`;
     item.addEventListener('click', () => {
       if (activeCategories.has(key)) {
         if (activeCategories.size > 1) { activeCategories.delete(key); item.classList.remove('active'); }
@@ -1493,19 +1655,17 @@ function buildUI() {
   });
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 //  RESIZE & INIT
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 
 const DEFAULT_MIN = -4000, DEFAULT_MAX = 2026;
 let _firstResize = true;
 
 function resize() {
   const rect    = area.getBoundingClientRect();
-  W             = rect.width;
-  H             = rect.height;
-  canvas.width  = W;
-  canvas.height = H;
+  W = rect.width; H = rect.height;
+  canvas.width = W; canvas.height = H;
 
   if (_firstResize) {
     _firstResize = false;
@@ -1516,14 +1676,10 @@ function resize() {
     const minS = W / (MAX_YEAR - MIN_YEAR);
     if (scale < minS) { scale = minS; scrollX = 0; }
   }
-
-  clampScroll();
-  updateScaleBar();
-  scheduleRender();
+  clampScroll(); updateScaleBar(); scheduleRender();
 }
 
 window.addEventListener('resize', () => { resize(); leafMap.invalidateSize(); });
-
 buildUI();
 resize();
 </script>
