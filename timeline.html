@@ -1646,12 +1646,15 @@ function formatYear(y) {
 //  HIT TEST
 // ═══════════════════════════════════════════════
 
+const isTouchDevice = () => 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
 function hitTest(mx, my) {
   const evs    = visibleEvents();
   const sorted = [...evs].sort((a, b) => b.imp - a.imp);
+  const pad    = isTouchDevice() ? 18 : 8;   // bigger tap zone on mobile
   for (const ev of sorted) {
     const x = yearToX(ev.year), y = eventY(ev);
-    const r = Math.max(4, ev.imp * 9.5) + 8;
+    const r = Math.max(4, ev.imp * 9.5) + pad;
     if ((mx - x) ** 2 + (my - y) ** 2 <= r * r) return ev;
   }
   return null;
@@ -1660,7 +1663,8 @@ function hitTest(mx, my) {
 function hitTestSpan(mx, my) {
   const ay    = axisY();
   const bandH = Math.max(8, Math.min(18, H * 0.022));
-  if (Math.abs(my - ay) > bandH + 4) return null;
+  const pad   = isTouchDevice() ? 12 : 4;
+  if (Math.abs(my - ay) > bandH + pad) return null;
   const yr = xToYear(mx);
   // Prefer events that are visible and already known to user
   const candidates = EVENTS.filter(ev =>
@@ -1895,24 +1899,53 @@ window.addEventListener('keydown', e => {
 let _touch = null, _pinch = null;
 canvas.addEventListener('touchstart', e => {
   e.preventDefault();
-  if (e.touches.length === 1) { _touch = { cx:e.touches[0].clientX, sx:scrollX }; _pinch = null; }
-  else if (e.touches.length === 2) {
-    _pinch = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+  if (e.touches.length === 1) {
+    _touch = { cx: e.touches[0].clientX, cy: e.touches[0].clientY, sx: scrollX };
+    _pinch = null;
+  } else if (e.touches.length === 2) {
+    _pinch = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
     _touch = null;
   }
-}, { passive:false });
+}, { passive: false });
+
 canvas.addEventListener('touchmove', e => {
   e.preventDefault();
   if (e.touches.length === 1 && _touch) {
     scrollX = _touch.sx - (e.touches[0].clientX - _touch.cx);
     clampScroll(); scheduleRender(); updateScaleBar();
   } else if (e.touches.length === 2 && _pinch != null) {
-    const d   = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
-    const mid = (e.touches[0].clientX+e.touches[1].clientX)/2 - canvas.getBoundingClientRect().left;
-    zoomAt(d/_pinch, mid); _pinch = d;
+    const d   = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    const mid = (e.touches[0].clientX + e.touches[1].clientX) / 2
+                - canvas.getBoundingClientRect().left;
+    zoomAt(d / _pinch, mid);
+    _pinch = d;
   }
-}, { passive:false });
-canvas.addEventListener('touchend', () => { _touch = null; _pinch = null; });
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+  // Detect tap (minimal movement) and do hit-test
+  if (_touch && _pinch === null && e.changedTouches.length === 1) {
+    const dx   = e.changedTouches[0].clientX - _touch.cx;
+    const dy   = e.changedTouches[0].clientY - _touch.cy;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist < 12) {          // finger didn't move — it's a tap
+      const rect = canvas.getBoundingClientRect();
+      const tx   = e.changedTouches[0].clientX - rect.left;
+      const ty   = e.changedTouches[0].clientY - rect.top;
+      const hit  = hitTest(tx, ty) || hitTestSpan(tx, ty);
+      if (hit) openPanel(hit);
+      else     closePanel();
+    }
+  }
+  _touch = null; _pinch = null;
+}, { passive: false });
 
 // ═══════════════════════════════════════════════
 //  MOBILE INTERACTIONS
