@@ -1452,16 +1452,17 @@ let _layout = new Map();                           // ev.id → y (px)
 let _layoutSig = '';                               // cache invalidation key
 
 function computeLayout() {
-  // Build a lightweight signature; recompute only when something meaningful changes
-  const sig = `${scale.toFixed(8)}|${scrollX.toFixed(1)}|${[...activeCategories].sort()}|${filterRelated}`;
+  // H is part of the signature — layout must recompute when canvas height changes
+  // (e.g. when the map resize handle is dragged)
+  const sig = `${scale.toFixed(8)}|${scrollX.toFixed(1)}|${H}|${[...activeCategories].sort()}|${filterRelated}`;
   if (sig === _layoutSig) return;
   _layoutSig = sig;
   _layout = new Map();
 
   const evs  = visibleEvents();
   const ay   = axisY();
-  const PAD  = 6;     // minimum gap (px) between dot edges
-  const placed = [];  // [{x, y, r}] already-resolved dots
+  const PAD  = 6;        // minimum gap (px) between dot edges
+  const placed = [];     // [{x, y, r}] already-resolved dots
 
   // High-importance dots get first pick of good positions.
   // Within same importance, sort by year so left-to-right ordering is stable.
@@ -1471,28 +1472,32 @@ function computeLayout() {
     const x    = yearToX(ev.year);
     const r    = Math.max(4, ev.imp * 9.5);
     const pref = (stableHash(ev.id) & 1) === 0;   // true = prefer above axis
-    const y    = _resolveY(x, r, ay, pref, placed, PAD);
+
+    // Natural starting distance from the axis — proportional to canvas height and
+    // event importance, so dots spread to fill the available vertical space.
+    const start = Math.max(r + 6, H * 0.20 * ev.imp);
+
+    const y = _resolveY(x, r, ay, pref, placed, PAD, start);
     placed.push({ x, y, r });
     _layout.set(ev.id, y);
   }
 }
 
-function _resolveY(x, r, ay, preferAbove, placed, pad) {
+function _resolveY(x, r, ay, preferAbove, placed, pad, start) {
   // Only test dots that can actually overlap horizontally
   const nearby = placed.filter(p => Math.abs(p.x - x) < r + p.r + pad);
 
-  const STEP  = 3;           // px step when searching for a clear slot
-  const MIN_Y = H * 0.04;
-  const MAX_Y = H * 0.96;
-  const START = r + 8;       // minimum distance from axis centre to dot centre
+  const STEP  = Math.max(2, r * 0.5);   // step proportional to dot size
+  const MIN_Y = H * 0.03;
+  const MAX_Y = H * 0.97;
 
   // Try preferred side first, then the opposite
   for (const dir of (preferAbove ? [-1, 1] : [1, -1])) {
-    for (let offset = START; offset < H * 0.92; offset += STEP) {
+    for (let offset = start; offset < H * 0.95; offset += STEP) {
       const y = ay + dir * offset;
       if (y < MIN_Y || y > MAX_Y) break;
 
-      // Collision check: all nearby dots must be far enough away
+      // Collision check: every nearby dot must be far enough away
       const clear = nearby.every(p => {
         const dx = x - p.x, dy = y - p.y;
         const need = r + p.r + pad;
@@ -1502,7 +1507,7 @@ function _resolveY(x, r, ay, preferAbove, placed, pad) {
     }
   }
   // Fallback — extremely rare
-  return ay + (preferAbove ? -1 : 1) * START;
+  return ay + (preferAbove ? -1 : 1) * start;
 }
 
 function eventY(ev) {
