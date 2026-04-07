@@ -58,7 +58,7 @@
     .left-col { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; }
 
     /* ── Map ── */
-    #map { height:220px; flex-shrink:0; background:#0a0a14; position:relative; }
+    #map { height:290px; flex-shrink:0; background:#0a0a14; position:relative; }
     .map-hint-overlay { position:absolute; top:50%; left:50%;
       transform:translate(-50%,-50%);
       background:rgba(13,13,26,.75); border:1px solid var(--border);
@@ -142,6 +142,35 @@
       letter-spacing:.08em; color:var(--muted); margin-bottom:5px; }
     .map-loc-tag { font-size:.63rem; color:var(--accent); display:flex; align-items:center; gap:4px; }
     .span-tag { font-size:.63rem; color:var(--muted); display:flex; align-items:center; gap:4px; }
+
+    /* ── Image gallery ── */
+    .gallery-scroll { display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; }
+    .gallery-scroll::-webkit-scrollbar { height:3px; }
+    .gallery-scroll::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+    .gallery-img-wrap { flex-shrink:0; width:150px; }
+    .gallery-img-wrap img { width:150px; height:95px; object-fit:cover;
+      border-radius:6px; border:1px solid var(--border); display:block;
+      background:var(--surface2); cursor:pointer; transition:border-color .12s; }
+    .gallery-img-wrap img:hover { border-color:var(--accent); }
+    .gallery-caption { font-size:.58rem; color:var(--muted); margin-top:3px;
+      text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .gallery-loading { font-size:.64rem; color:var(--muted); padding:6px 0;
+      display:flex; align-items:center; gap:6px; }
+    .gallery-spinner { width:12px; height:12px; border:2px solid var(--border);
+      border-top-color:var(--accent); border-radius:50%;
+      animation:spin .7s linear infinite; flex-shrink:0; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* Lightbox */
+    #lightbox { position:fixed; inset:0; background:rgba(0,0,0,.88);
+      z-index:999; display:none; align-items:center; justify-content:center; cursor:zoom-out; }
+    #lightbox.open { display:flex; }
+    #lightbox img { max-width:90vw; max-height:88vh; border-radius:8px;
+      box-shadow:0 0 60px rgba(0,0,0,.8); }
+    #lightboxClose { position:absolute; top:16px; right:20px; background:none;
+      border:none; color:#fff; font-size:1.6rem; cursor:pointer; opacity:.7; }
+    #lightboxClose:hover { opacity:1; }
+
     .rel-list { display:flex; flex-direction:column; gap:5px; }
     .rel-item { background:var(--surface2); border:1px solid var(--border);
       border-radius:5px; padding:7px 10px; cursor:pointer;
@@ -212,9 +241,16 @@
       <div class="span-tag"    id="panelSpan"></div>
       <p class="pdesc"         id="panelDesc"></p>
       <p class="pdetail"       id="panelDetail"></p>
+      <div id="panelGallery"></div>
       <div id="panelRel"></div>
     </div>
   </div>
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox">
+  <button id="lightboxClose">✕</button>
+  <img id="lightboxImg" src="" alt="" />
 </div>
 
 <div id="tooltip">
@@ -927,6 +963,139 @@ const ERA_JUMPS = [
 ];
 
 // ═══════════════════════════════════════════════
+//  WIKIPEDIA IMAGE LOOKUP
+// ═══════════════════════════════════════════════
+
+// Maps event IDs → Wikipedia article titles to fetch images from
+const EVENT_WIKI = {
+  e_human_emerge:   ['Homo_sapiens','Jebel_Irhoud'],
+  e_fire:           ['Control_of_fire_by_early_humans'],
+  e_cave_art:       ['Cave_painting','Chauvet_Cave','Venus_figurines'],
+  e_agri:           ['Neolithic_Revolution','Agriculture'],
+  e_writing:        ['Cuneiform','Uruk'],
+  e_pottery:        ['Pottery'],
+  e_wheel:          ['Wheel'],
+  e_uruk:           ['Uruk'],
+  e_egypt:          ['Ancient_Egypt','Egyptian_pyramids'],
+  e_pyramid:        ['Great_Pyramid_of_Giza','Giza_pyramid_complex'],
+  e_indus:          ['Mohenjo-daro','Indus_Valley_Civilisation'],
+  e_bronze:         ['Bronze_Age'],
+  e_hammurabi:      ['Code_of_Hammurabi'],
+  e_iron:           ['Iron_Age'],
+  e_phoenician:     ['Phoenician_alphabet'],
+  e_olympics:       ['Ancient_Olympic_Games','Olympia,_Greece'],
+  e_persia:         ['Achaemenid_Empire','Persepolis'],
+  e_confucius:      ['Confucius'],
+  e_buddha:         ['Bodh_Gaya','Gautama_Buddha'],
+  e_athens:         ['Parthenon','Athenian_democracy'],
+  e_library_alex:   ['Library_of_Alexandria','Alexandria'],
+  e_alexander:      ['Alexander_the_Great'],
+  e_qin:            ['Qin_Shi_Huang','Terracotta_Army'],
+  e_han_dynasty:    ['Han_dynasty'],
+  e_silk_road:      ['Silk_Road'],
+  e_rome_rep:       ['Roman_Republic','Roman_Forum'],
+  e_caesar:         ['Roman_Empire','Colosseum'],
+  e_jesus:          ['Jerusalem','Church_of_the_Holy_Sepulchre'],
+  e_maya_classic:   ['Tikal','Maya_civilization'],
+  e_byzantine:      ['Hagia_Sophia','Byzantine_Empire'],
+  e_rome_fall:      ['Fall_of_the_Western_Roman_Empire'],
+  e_justinian:      ['Justinian_I','Corpus_Juris_Civilis'],
+  e_islam:          ['Masjid_al-Haram','Muhammad'],
+  e_zero:           ['0','Hindu–Arabic_numeral_system'],
+  e_charlemagne:    ['Charlemagne'],
+  e_abbasid:        ['Baghdad','Abbasid_Caliphate'],
+  e_vikings:        ['Viking_Age','Longship'],
+  e_gunpowder_china:['Gunpowder','Song_dynasty'],
+  e_song_dynasty:   ['Song_dynasty','Movable_type'],
+  e_leif_erikson:   ["L'Anse_aux_Meadows",'Leif_Erikson'],
+  e_crusades:       ['Crusades','Siege_of_Jerusalem_(1099)'],
+  e_angkor:         ['Angkor_Wat','Khmer_Empire'],
+  e_mongols:        ['Mongol_Empire','Genghis_Khan'],
+  e_magna:          ['Magna_Carta'],
+  e_mali:           ['Mali_Empire','Mansa_Musa'],
+  e_aztec_found:    ['Tenochtitlan','Aztec_Empire'],
+  e_hundred_years:  ["Hundred_Years'_War",'Joan_of_Arc'],
+  e_black_death:    ['Black_Death','Bubonic_plague'],
+  e_renaissance:    ['Renaissance','Leonardo_da_Vinci'],
+  e_inca_empire:    ['Inca_Empire','Machu_Picchu'],
+  e_gutenberg:      ['Printing_press','Johannes_Gutenberg'],
+  e_fall_const:     ['Fall_of_Constantinople','Mehmed_II'],
+  e_ottoman:        ['Ottoman_Empire','Suleiman_the_Magnificent'],
+  e_columbus:       ['Christopher_Columbus','Caribbean'],
+  e_reform:         ['Protestant_Reformation','Martin_Luther'],
+  e_magellan:       ['Ferdinand_Magellan','Circumnavigation'],
+  e_slave_trade:    ['Atlantic_slave_trade'],
+  e_sci_rev:        ['Scientific_Revolution','Nicolaus_Copernicus'],
+  e_shakespeare:    ['William_Shakespeare','Globe_Theatre'],
+  e_galileo:        ['Galileo_Galilei'],
+  e_thirty_years:   ["Thirty_Years'_War",'Peace_of_Westphalia'],
+  e_taj_mahal:      ['Taj_Mahal','Shah_Jahan'],
+  e_english_cw:     ['English_Civil_War','Oliver_Cromwell'],
+  e_newton:         ['Isaac_Newton','Philosophiæ_Naturalis_Principia_Mathematica'],
+  e_steam:          ['Steam_engine','James_Watt'],
+  e_amer_rev:       ['American_Revolution','Declaration_of_Independence'],
+  e_haitian_rev:    ['Haitian_Revolution','Toussaint_Louverture'],
+  e_french_rev:     ['French_Revolution','Storming_of_the_Bastille'],
+  e_napoleon:       ['Napoleon','Battle_of_Waterloo_(1815)'],
+  e_communist_manifesto: ['The_Communist_Manifesto','Karl_Marx'],
+  e_darwin:         ['Charles_Darwin','On_the_Origin_of_Species'],
+  e_us_civil_war:   ['American_Civil_War','Abraham_Lincoln'],
+  e_abolition:      ['Emancipation_Proclamation'],
+  e_suez_canal:     ['Suez_Canal'],
+  e_phone:          ['Alexander_Graham_Bell','Telephone'],
+  e_wright:         ['Wright_brothers','Kitty_Hawk,_North_Carolina'],
+  e_relativity:     ['Albert_Einstein','Special_relativity'],
+  e_wwi:            ['World_War_I','Western_Front_(World_War_I)'],
+  e_rus_rev:        ['Russian_Revolution','Vladimir_Lenin'],
+  e_spanish_flu:    ['Spanish_flu'],
+  e_womens_suffrage:['19th_Amendment_to_the_United_States_Constitution','Women%27s_suffrage'],
+  e_depression:     ['Great_Depression','Wall_Street_Crash_of_1929'],
+  e_wwii:           ['World_War_II','Holocaust'],
+  e_hiroshima:      ['Atomic_bombings_of_Hiroshima_and_Nagasaki'],
+  e_un:             ['United_Nations','Universal_Declaration_of_Human_Rights'],
+  e_decolonise:     ['Indian_independence_movement','Jawaharlal_Nehru'],
+  e_china_prc:      ["People's_Republic_of_China",'Mao_Zedong'],
+  e_dna:            ['DNA','Rosalind_Franklin'],
+  e_civil_rights:   ['Civil_rights_movement','Martin_Luther_King_Jr.'],
+  e_space:          ['Sputnik_1','Space_Race'],
+  e_cuban_missile:  ['Cuban_Missile_Crisis'],
+  e_vietnam:        ['Vietnam_War'],
+  e_moon:           ['Apollo_11','Neil_Armstrong'],
+  e_microchip:      ['Intel_4004','Microprocessor'],
+  e_aids:           ['HIV/AIDS'],
+  e_chernobyl:      ['Chernobyl_disaster'],
+  e_berlin_wall:    ['Fall_of_the_Berlin_Wall','Berlin_Wall'],
+  e_www:            ['World_Wide_Web','Tim_Berners-Lee'],
+  e_ussr:           ['Dissolution_of_the_Soviet_Union','Boris_Yeltsin'],
+  e_apartheid_end:  ['Nelson_Mandela','End_of_apartheid_in_South_Africa'],
+  e_genome:         ['Human_Genome_Project'],
+  e_911:            ['September_11_attacks'],
+  e_iphone:         ['IPhone_(1st_generation)','Steve_Jobs'],
+  e_financial_crisis:['Financial_crisis_of_2007–2008','Lehman_Brothers'],
+  e_arab_spring:    ['Arab_Spring','Tunisian_Revolution'],
+  e_crispr:         ['CRISPR','Jennifer_Doudna'],
+  e_paris:          ['Paris_Agreement'],
+  e_covid:          ['COVID-19_pandemic','COVID-19_vaccine'],
+  e_ai:             ['ChatGPT','Large_language_model'],
+};
+
+async function fetchWikiImages(wikiTitles) {
+  if (!wikiTitles || !wikiTitles.length) return [];
+  const titles = wikiTitles.slice(0, 3).join('|'); // max 3 articles
+  const url = `https://en.wikipedia.org/w/api.php?` + new URLSearchParams({
+    action: 'query', titles, prop: 'pageimages', format: 'json',
+    pithumbsize: 400, origin: '*',
+  });
+  try {
+    const res  = await fetch(url);
+    const data = await res.json();
+    return Object.values(data.query.pages)
+      .filter(p => p.thumbnail && p.thumbnail.source)
+      .map(p => ({ url: p.thumbnail.source, caption: p.title.replace(/_/g, ' ') }));
+  } catch { return []; }
+}
+
+// ═══════════════════════════════════════════════
 //  SHAPE HELPERS
 // ═══════════════════════════════════════════════
 
@@ -1245,7 +1414,8 @@ function drawSpans() {
     const color  = (CATS[ev.cat] || { color:'#888' }).color;
     const isSel  = selectedEv && selectedEv.id === ev.id;
     const isHov  = hoveredEv  && hoveredEv.id  === ev.id;
-    const fillA  = isSel ? 0.42 : isHov ? 0.32 : 0.18;
+    if (!isSel && !isHov) return; // only reveal span when event is focused
+    const fillA  = isSel ? 0.42 : 0.28;
     const edgeA  = isSel ? 0.70 : isHov ? 0.55 : 0.35;
 
     // Filled band
@@ -1488,15 +1658,53 @@ function openPanel(ev) {
     });
   });
 
+  // Image gallery
+  const galleryEl = document.getElementById('panelGallery');
+  const wikiTitles = EVENT_WIKI[ev.id];
+  if (wikiTitles) {
+    galleryEl.innerHTML = `
+      <div class="psect">Images</div>
+      <div class="gallery-loading"><div class="gallery-spinner"></div> Loading…</div>`;
+    fetchWikiImages(wikiTitles).then(imgs => {
+      if (!imgs.length) { galleryEl.innerHTML = ''; return; }
+      galleryEl.innerHTML = `<div class="psect">Images</div>
+        <div class="gallery-scroll">
+          ${imgs.map(img => `
+            <div class="gallery-img-wrap">
+              <img src="${img.url}" alt="${img.caption}" data-full="${img.url.replace(/\/\d+px-/, '/800px-')}" />
+              <div class="gallery-caption">${img.caption}</div>
+            </div>`).join('')}
+        </div>`;
+      galleryEl.querySelectorAll('img').forEach(img => {
+        img.addEventListener('click', () => openLightbox(img.dataset.full || img.src));
+      });
+    });
+  } else {
+    galleryEl.innerHTML = '';
+  }
+
   panel.classList.add('open');
   setTimeout(() => { leafMap.invalidateSize(); updateMap(ev); }, 230);
   scheduleRender();
 }
 
+// ── Lightbox ──
+function openLightbox(src) {
+  document.getElementById('lightboxImg').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.getElementById('lightboxImg').src = '';
+}
+document.getElementById('lightbox').addEventListener('click', closeLightbox);
+document.getElementById('lightboxClose').addEventListener('click', e => { e.stopPropagation(); closeLightbox(); });
+
 function closePanel() {
   selectedEv = null;
   filterRelated = false;
   document.getElementById('btnFilterRelated').classList.remove('active');
+  document.getElementById('panelGallery').innerHTML = '';
   clearMapMarker();
   panel.classList.remove('open');
   setTimeout(() => leafMap.invalidateSize(), 230);
