@@ -398,6 +398,51 @@
     }
     #lightboxClose:hover { background: rgba(255,255,255,.2); }
 
+    /* ── Wikipedia extract ──────────────────── */
+    .wiki-section { display: flex; flex-direction: column; gap: 8px; }
+    .wiki-extract {
+      font-size: .71rem; line-height: 1.75; color: var(--text-dim);
+      display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .wiki-extract.expanded { -webkit-line-clamp: unset; }
+    .wiki-expand-btn {
+      font-size: .6rem; color: var(--accent-hi); background: none; border: none;
+      cursor: pointer; padding: 0; font-family: inherit; text-align: left;
+      opacity: .8; transition: opacity .15s;
+    }
+    .wiki-expand-btn:hover { opacity: 1; }
+    .wiki-link-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: var(--surface3); border: 1px solid var(--border-hi);
+      color: var(--text-dim); border-radius: 20px;
+      padding: 4px 12px; font-size: .61rem; font-family: inherit;
+      cursor: pointer; text-decoration: none; transition: all .15s;
+      align-self: flex-start;
+    }
+    .wiki-link-btn:hover {
+      border-color: var(--accent); color: var(--accent-hi);
+      background: var(--accent-dim);
+    }
+
+    /* ── Story prev/next nav ────────────────── */
+    .story-nav {
+      display: flex; align-items: center; gap: 4px;
+      background: rgba(99,102,241,.1); border: 1px solid rgba(99,102,241,.25);
+      border-radius: 20px; padding: 1px 5px;
+    }
+    .story-nav-btn {
+      background: none; border: none; color: var(--accent-hi);
+      font-size: .65rem; font-family: inherit; cursor: pointer;
+      padding: 1px 5px; border-radius: 10px; transition: all .15s;
+    }
+    .story-nav-btn:hover:not(:disabled) { background: var(--accent-dim); }
+    .story-nav-btn:disabled { opacity: .3; cursor: default; }
+    .story-nav-pos {
+      font-size: .6rem; color: var(--muted); white-space: nowrap; min-width: 34px;
+      text-align: center;
+    }
+
     /* ── Related events ─────────────────────── */
     .rel-list { display: flex; flex-direction: column; gap: 5px; }
     .rel-item {
@@ -446,7 +491,9 @@
       #mapResizeHandle { display: none; }
       .stories-grid { grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px; }
       .stories-modal-header { padding: 16px; }
-      .story-bar { padding: 5px 12px; font-size: .67rem; }
+      .story-bar { padding: 5px 12px; font-size: .67rem; flex-wrap: wrap; }
+      .story-bar-count { display: none; }
+      .story-nav-pos { min-width: 28px; font-size: .58rem; }
 
       .hint { font-size: .56rem; padding: 4px 12px; bottom: 8px; }
 
@@ -502,6 +549,11 @@
   <span class="story-bar-icon" id="storyBarIcon"></span>
   <span class="story-bar-name" id="storyBarName"></span>
   <span class="story-bar-count" id="storyBarCount"></span>
+  <div class="story-nav" id="storyNav">
+    <button class="story-nav-btn" id="btnStoryPrev" title="Previous event">‹</button>
+    <span class="story-nav-pos" id="storyNavPos">— / —</span>
+    <button class="story-nav-btn" id="btnStoryNext" title="Next event">›</button>
+  </div>
   <button class="story-exit-btn" id="btnExitStory">Exit story ✕</button>
 </div>
 
@@ -535,6 +587,7 @@
       <p class="pdesc"         id="panelDesc"></p>
       <p class="pdetail"       id="panelDetail"></p>
       <div id="panelGallery"></div>
+      <div id="panelWiki"></div>
       <div id="panelRel"></div>
     </div>
   </div>
@@ -1484,6 +1537,91 @@ async function fetchWikiImages(wikiTitles) {
   } catch { return []; }
 }
 
+async function fetchWikiExtract(title) {
+  if (wikiExtractCache.has(title)) return wikiExtractCache.get(title);
+  const url = `https://en.wikipedia.org/w/api.php?` + new URLSearchParams({
+    action: 'query', titles: title, prop: 'extracts',
+    exintro: '1', explaintext: '1', exsectionformat: 'plain',
+    format: 'json', origin: '*',
+  });
+  try {
+    const res  = await fetch(url);
+    const data = await res.json();
+    const pages = Object.values(data.query.pages);
+    const text  = pages[0]?.extract || '';
+    // Trim to first ~600 chars ending at a sentence boundary
+    const trimmed = text.length > 600
+      ? text.slice(0, 600).replace(/\.[^.]*$/, '.') + '..'
+      : text;
+    wikiExtractCache.set(title, trimmed);
+    return trimmed;
+  } catch { return ''; }
+}
+
+// ── Dynamic Wikipedia year events ──────────────────────
+function parseWikiYearEvents(year, wikitext) {
+  const results = [];
+  // Extract the "Events" section content
+  const evSection = wikitext.match(/==\s*Events\s*==\s*([\s\S]*?)(?:\n==\s|\s*$)/i)?.[1] || '';
+  const lines = evSection.split('\n');
+  for (const line of lines) {
+    const m = line.match(/^\*+\s*(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d+)\s*[–\-]\s*(.+)/i);
+    if (!m) continue;
+    const months = {january:0,february:1,march:2,april:3,may:4,june:5,
+                    july:6,august:7,september:8,october:9,november:10,december:11};
+    const month  = months[m[1].toLowerCase()];
+    const day    = parseInt(m[2], 10);
+    const desc   = m[3].replace(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g, '$1').replace(/<[^>]+>/g,'').trim();
+    if (!desc) continue;
+    // Fractional year: year + (month * 30.44 + day) / 365.25
+    const fracYear = year + (month * 30.44 + day) / 365.25;
+    results.push({ id: `dyn_${year}_${month}_${day}_${results.length}`,
+                   name: desc.slice(0, 55) + (desc.length > 55 ? '…' : ''),
+                   fullDesc: desc, year: fracYear, baseYear: year,
+                   month: m[1], day,
+                   minTier: 4, cat: 'society', imp: 0.22, isDynamic: true });
+  }
+  return results;
+}
+
+async function fetchYearEvents(year) {
+  if (fetchedYears.has(year) || fetchingYears.has(year)) return;
+  fetchingYears.add(year);
+  // Only fetch CE years (Wikipedia year articles cover ~1 CE - present)
+  if (year < 1 || year > MAX_YEAR) { fetchedYears.add(year); fetchingYears.delete(year); return; }
+  const title = String(year);
+  const url = `https://en.wikipedia.org/w/api.php?` + new URLSearchParams({
+    action: 'query', titles: title, prop: 'revisions',
+    rvprop: 'content', rvslots: 'main', format: 'json', origin: '*',
+  });
+  try {
+    const res  = await fetch(url);
+    const data = await res.json();
+    const page = Object.values(data.query.pages)[0];
+    if (page.missing) { fetchedYears.add(year); return; }
+    const wikitext = page.revisions?.[0]?.slots?.main?.['*'] || '';
+    const evs = parseWikiYearEvents(year, wikitext);
+    // Remove any existing dynamic events for this year and add new ones
+    dynamicEvents = dynamicEvents.filter(e => e.baseYear !== year).concat(evs);
+    fetchedYears.add(year);
+    scheduleRender();
+  } catch {
+    fetchedYears.add(year); // prevent retry on error
+  } finally {
+    fetchingYears.delete(year);
+  }
+}
+
+function maybeLoadWikiEvents() {
+  // Only load at very high zoom (scale > 25 px/year ≈ viewing < 50 years at once)
+  if (scale < 25) return;
+  const vMin = Math.ceil(xToYear(0));
+  const vMax = Math.floor(xToYear(W));
+  for (let yr = Math.max(1, vMin); yr <= Math.min(MAX_YEAR, vMax); yr++) {
+    fetchYearEvents(yr);
+  }
+}
+
 // ═══════════════════════════════════════════════
 //  SHAPE HELPERS
 // ═══════════════════════════════════════════════
@@ -1676,7 +1814,16 @@ let hoveredEv = null, selectedEv = null;
 let activeCategories = new Set(Object.keys(CATS));
 let filterRelated = false;
 let activeStory = null;   // null = free exploration, otherwise a STORIES entry
+let storyIndex = -1;      // index into storyEventsSorted() for prev/next nav
 let rafPending = false;
+
+// ── Wikipedia extract cache ──
+const wikiExtractCache = new Map();
+
+// ── Dynamic year events (fetched from Wikipedia at high zoom) ──
+let dynamicEvents = [];
+const fetchedYears   = new Set();
+const fetchingYears  = new Set();
 
 // ═══════════════════════════════════════════════
 //  CORE MATH
@@ -1714,6 +1861,8 @@ function scheduleRender() {
     rafPending = false; render();
     // Keep popup anchored to its dot as the timeline pans/zooms
     if (panel.classList.contains('open') && selectedEv) positionPopup(selectedEv);
+    // Trigger fetching of Wikipedia year events when zoomed in enough
+    maybeLoadWikiEvents();
   });
 }
 
@@ -1810,7 +1959,7 @@ function isRelatedTo(ev, sel) {
 function visibleEvents() {
   const vMin = xToYear(-50);
   const vMax = xToYear(W + 50);
-  return EVENTS.filter(ev => {
+  const base = EVENTS.filter(ev => {
     // In story mode show all story events regardless of zoom tier
     if (activeStory) {
       if (!activeStory.events.includes(ev.id)) return false;
@@ -1822,6 +1971,16 @@ function visibleEvents() {
     if (filterRelated && selectedEv && !isRelatedTo(ev, selectedEv)) return false;
     return true;
   });
+  // Inject dynamic Wikipedia events at very high zoom
+  if (scale >= 25 && !activeStory) {
+    const dynVisible = dynamicEvents.filter(ev => {
+      if (ev.year < vMin || ev.year > vMax) return false;
+      if (!activeCategories.has(ev.cat)) return false;
+      return true;
+    });
+    return base.concat(dynVisible);
+  }
+  return base;
 }
 
 function labelSet(evs) {
@@ -2117,9 +2276,13 @@ function openPanel(ev) {
   document.getElementById('panelTitle').textContent = ev.name;
 
   const cat = CATS[ev.cat] || { label:ev.cat, color:'#888' };
+  const dateLabel = ev.isDynamic
+    ? `${ev.month} ${ev.day}, ${ev.baseYear}`
+    : formatYear(ev.year);
   document.getElementById('panelMeta').innerHTML = `
     <span class="mtag" style="color:${cat.color};border-color:${cat.color}44">${cat.label}</span>
-    <span class="mtag">${formatYear(ev.year)}</span>
+    <span class="mtag">${dateLabel}</span>
+    ${ev.isDynamic ? '<span class="mtag" style="color:var(--muted);font-size:.55rem">📖 Wikipedia</span>' : ''}
   `;
 
   const locEl = document.getElementById('panelLoc');
@@ -2190,6 +2353,55 @@ function openPanel(ev) {
     });
   } else {
     galleryEl.innerHTML = '';
+  }
+
+  // Wikipedia extract
+  const wikiEl = document.getElementById('panelWiki');
+  if (wikiTitles && wikiTitles.length) {
+    const primaryTitle = wikiTitles[0];
+    const wikiPageUrl  = `https://en.wikipedia.org/wiki/${encodeURIComponent(primaryTitle)}`;
+    wikiEl.innerHTML = `
+      <div class="wiki-section">
+        <div class="psect">From Wikipedia</div>
+        <div class="gallery-loading"><div class="gallery-spinner"></div> Loading…</div>
+      </div>`;
+    fetchWikiExtract(primaryTitle).then(text => {
+      if (!text) { wikiEl.innerHTML = ''; return; }
+      const extractId  = `we_${ev.id}`;
+      const expandId   = `wx_${ev.id}`;
+      wikiEl.innerHTML = `
+        <div class="wiki-section">
+          <div class="psect">From Wikipedia</div>
+          <p class="wiki-extract" id="${extractId}">${text}</p>
+          <button class="wiki-expand-btn" id="${expandId}">Show more ↓</button>
+          <a class="wiki-link-btn" href="${wikiPageUrl}" target="_blank" rel="noopener">
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+              <path d="M2 9L9 2M9 2H4.5M9 2V6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Read on Wikipedia
+          </a>
+        </div>`;
+      const extractEl = document.getElementById(extractId);
+      const expandBtn = document.getElementById(expandId);
+      expandBtn.addEventListener('click', () => {
+        const expanded = extractEl.classList.toggle('expanded');
+        expandBtn.textContent = expanded ? 'Show less ↑' : 'Show more ↓';
+      });
+      // Hide expand btn if text is short enough to not need it
+      if (text.length < 300) expandBtn.style.display = 'none';
+    });
+  } else if (ev.isDynamic) {
+    // Dynamic events: show the full description
+    wikiEl.innerHTML = `<div class="wiki-section"><p class="wiki-extract expanded">${ev.fullDesc || ev.name}</p></div>`;
+  } else {
+    wikiEl.innerHTML = '';
+  }
+
+  // Sync story navigation index
+  if (activeStory) {
+    const sorted = storyEventsSorted();
+    storyIndex = sorted.findIndex(e => e.id === ev.id);
+    updateStoryNav();
   }
 
   positionPopup(ev);
@@ -2274,14 +2486,17 @@ function closePanel() {
   filterRelated = false;
   document.getElementById('btnFilterRelated').classList.remove('active');
   document.getElementById('panelGallery').innerHTML = '';
+  document.getElementById('panelWiki').innerHTML = '';
   clearMapMarker();
   panel.classList.remove('open');
   scheduleRender();
 }
 
 function navigateTo(ev) {
-  const needed = TIER_SCALE[ev.minTier];
-  if (scale < needed * 1.5) scale = needed * 2.5;
+  if (!ev.isDynamic) {
+    const needed = TIER_SCALE[ev.minTier];
+    if (scale < needed * 1.5) scale = needed * 2.5;
+  }
   scrollX = (ev.year - MIN_YEAR) * scale - W / 2;
   clampScroll(); updateScaleBar(); openPanel(ev);
 }
@@ -2301,8 +2516,12 @@ document.getElementById('btnFilterRelated').addEventListener('click', () => {
 
 function showTooltip(ev, cx, cy) {
   document.getElementById('ttTitle').textContent = ev.name;
-  document.getElementById('ttYear').textContent  = formatYear(ev.year);
-  document.getElementById('ttDesc').textContent  = ev.desc || '';
+  document.getElementById('ttYear').textContent  = ev.isDynamic
+    ? `${ev.month} ${ev.day}, ${ev.baseYear}`
+    : formatYear(ev.year);
+  document.getElementById('ttDesc').textContent  = ev.isDynamic
+    ? (ev.fullDesc || ev.name)
+    : (ev.desc || '');
   tooltip.classList.add('show');
   const tw = tooltip.offsetWidth || 230, th = tooltip.offsetHeight || 80;
   let tx = cx + 16, ty = cy - th / 2;
@@ -2466,8 +2685,46 @@ document.addEventListener('pointerdown', e => {
 //  STORY SYSTEM
 // ═══════════════════════════════════════════════
 
+// ── Story navigation helpers ──────────────────────────
+function storyEventsSorted() {
+  if (!activeStory) return [];
+  return activeStory.events
+    .map(id => EVENTS.find(e => e.id === id))
+    .filter(Boolean)
+    .sort((a, b) => a.year - b.year);
+}
+
+function storyGoTo(idx) {
+  const sorted = storyEventsSorted();
+  if (!sorted.length) return;
+  storyIndex = Math.max(0, Math.min(sorted.length - 1, idx));
+  const ev = sorted[storyIndex];
+  // Pan to bring event into view, then open its popup
+  navigateTo(ev);
+  updateStoryNav();
+}
+
+function storyNext() { storyGoTo(storyIndex + 1); }
+function storyPrev() { storyGoTo(storyIndex - 1); }
+
+function updateStoryNav() {
+  const sorted  = storyEventsSorted();
+  const navEl   = document.getElementById('storyNav');
+  const posEl   = document.getElementById('storyNavPos');
+  const prevBtn = document.getElementById('btnStoryPrev');
+  const nextBtn = document.getElementById('btnStoryNext');
+  if (!navEl) return;
+  if (!activeStory || !sorted.length) { navEl.style.display = 'none'; return; }
+  navEl.style.display = 'flex';
+  const pos = storyIndex >= 0 ? storyIndex + 1 : '—';
+  posEl.textContent = `${pos} / ${sorted.length}`;
+  prevBtn.disabled  = storyIndex <= 0;
+  nextBtn.disabled  = storyIndex >= sorted.length - 1;
+}
+
 function activateStory(story) {
   activeStory = story;
+  storyIndex  = -1;
   closePanel();
   jumpTo(story.range[0], story.range[1]);
   updateStoryBar();
@@ -2478,7 +2735,9 @@ function activateStory(story) {
 
 function exitStory() {
   activeStory = null;
+  storyIndex  = -1;
   updateStoryBar();
+  updateStoryNav();
   updateScaleBar();
   scheduleRender();
 }
@@ -2491,6 +2750,7 @@ function updateStoryBar() {
   document.getElementById('storyBarName').textContent  = activeStory.name;
   document.getElementById('storyBarCount').textContent =
     `· ${activeStory.events.length} curated events`;
+  updateStoryNav();
 }
 
 function openStoriesModal() {
@@ -2546,6 +2806,8 @@ function buildUI() {
     if (e.target === document.getElementById('storiesModal')) closeStoriesModal();
   });
   document.getElementById('btnExitStory').addEventListener('click', exitStory);
+  document.getElementById('btnStoryPrev').addEventListener('click', storyPrev);
+  document.getElementById('btnStoryNext').addEventListener('click', storyNext);
   buildStoriesGrid();
 
   // Legend with actual category shapes
