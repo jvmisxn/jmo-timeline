@@ -1571,7 +1571,12 @@ function parseWikiYearEvents(year, wikitext) {
                     july:6,august:7,september:8,october:9,november:10,december:11};
     const month  = months[m[1].toLowerCase()];
     const day    = parseInt(m[2], 10);
-    const desc   = m[3].replace(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g, '$1').replace(/<[^>]+>/g,'').trim();
+    // Strip wiki links [[Target|Label]] → Label or Target, then sanitise HTML via DOM
+    const raw    = m[3].replace(/\[\[([^\]|]*)\|([^\]]+)\]\]/g, '$2')
+                       .replace(/\[\[([^\]]+)\]\]/g, '$1');
+    const tmp    = document.createElement('div');
+    tmp.innerHTML = raw;
+    const desc   = (tmp.textContent || '').trim();
     if (!desc) continue;
     // Fractional year: year + (month * 30.44 + day) / 365.25
     const fracYear = year + (month * 30.44 + day) / 365.25;
@@ -1612,14 +1617,27 @@ async function fetchYearEvents(year) {
   }
 }
 
-function maybeLoadWikiEvents() {
+function _doLoadWikiEvents() {
   // Only load at very high zoom (scale > 25 px/year ≈ viewing < 50 years at once)
   if (scale < 25) return;
   const vMin = Math.ceil(xToYear(0));
   const vMax = Math.floor(xToYear(W));
+  // Cap how many years we try to fetch per viewport to avoid API spam
+  const maxYears = 15;
+  let queued = 0;
   for (let yr = Math.max(1, vMin); yr <= Math.min(MAX_YEAR, vMax); yr++) {
+    if (fetchedYears.has(yr) || fetchingYears.has(yr)) continue;
+    if (fetchingYears.size >= WIKI_MAX_CONCURRENT) break;  // concurrency limit
+    if (queued >= maxYears) break;
     fetchYearEvents(yr);
+    queued++;
   }
+}
+
+function maybeLoadWikiEvents() {
+  // Debounce: wait 300ms after last scroll/zoom before firing API calls
+  clearTimeout(_wikiDebounceTimer);
+  _wikiDebounceTimer = setTimeout(_doLoadWikiEvents, 300);
 }
 
 // ═══════════════════════════════════════════════
@@ -1824,6 +1842,17 @@ const wikiExtractCache = new Map();
 let dynamicEvents = [];
 const fetchedYears   = new Set();
 const fetchingYears  = new Set();
+
+// ── Wiki fetch throttling ──
+const WIKI_MAX_CONCURRENT = 3;
+let _wikiDebounceTimer = null;
+
+// ── Text sanitisation helper (prevent XSS from API responses) ──
+function escapeHTML(str) {
+  const el = document.createElement('span');
+  el.textContent = str;
+  return el.innerHTML;
+}
 
 // ═══════════════════════════════════════════════
 //  CORE MATH
@@ -2372,7 +2401,7 @@ function openPanel(ev) {
       wikiEl.innerHTML = `
         <div class="wiki-section">
           <div class="psect">From Wikipedia</div>
-          <p class="wiki-extract" id="${extractId}">${text}</p>
+          <p class="wiki-extract" id="${extractId}"></p>
           <button class="wiki-expand-btn" id="${expandId}">Show more ↓</button>
           <a class="wiki-link-btn" href="${wikiPageUrl}" target="_blank" rel="noopener">
             <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
@@ -2381,7 +2410,9 @@ function openPanel(ev) {
             Read on Wikipedia
           </a>
         </div>`;
+      // Safe: set text via textContent, not innerHTML
       const extractEl = document.getElementById(extractId);
+      extractEl.textContent = text;
       const expandBtn = document.getElementById(expandId);
       expandBtn.addEventListener('click', () => {
         const expanded = extractEl.classList.toggle('expanded');
@@ -2391,8 +2422,8 @@ function openPanel(ev) {
       if (text.length < 300) expandBtn.style.display = 'none';
     });
   } else if (ev.isDynamic) {
-    // Dynamic events: show the full description
-    wikiEl.innerHTML = `<div class="wiki-section"><p class="wiki-extract expanded">${ev.fullDesc || ev.name}</p></div>`;
+    // Dynamic events: show the full description (escaped to prevent XSS)
+    wikiEl.innerHTML = `<div class="wiki-section"><p class="wiki-extract expanded">${escapeHTML(ev.fullDesc || ev.name)}</p></div>`;
   } else {
     wikiEl.innerHTML = '';
   }
