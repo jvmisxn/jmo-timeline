@@ -2163,8 +2163,9 @@ function computeLayout() {
 
   const evs  = visibleEvents();
   const ay   = axisY();
-  const PAD  = 6;        // minimum gap (px) between dot edges
-  const placed = [];     // [{x, y, r}] already-resolved dots
+  const PAD  = 8;        // minimum gap (px) between dot edges
+  const LABEL_H = 18;    // approximate label text height (px)
+  const placed = [];     // [{x, y, r, lw}] already-resolved dots
 
   // High-importance dots get first pick of good positions.
   // Within same importance, sort by year so left-to-right ordering is stable.
@@ -2174,22 +2175,27 @@ function computeLayout() {
     const x    = yearToX(ev.year);
     const r    = Math.max(4, ev.imp * 9.5);
     const pref = (stableHash(ev.id) & 1) === 0;   // true = prefer above axis
+    const lw   = ev.name.length * 6.5 + 8;  // approximate label width
 
     // Natural starting distance from the axis — proportional to canvas height and
     // event importance, so dots spread to fill the available vertical space.
-    const start = Math.max(r + 6, H * 0.20 * ev.imp);
+    const start = Math.max(r + LABEL_H + 6, H * 0.20 * ev.imp);
 
-    const y = _resolveY(x, r, ay, pref, placed, PAD, start);
-    placed.push({ x, y, r });
+    const y = _resolveY(x, r, lw, ay, pref, placed, PAD, LABEL_H, start);
+    placed.push({ x, y, r, lw });
     _layout.set(ev.id, y);
   }
 }
 
-function _resolveY(x, r, ay, preferAbove, placed, pad, start) {
-  // Only test dots that can actually overlap horizontally
-  const nearby = placed.filter(p => Math.abs(p.x - x) < r + p.r + pad);
+function _resolveY(x, r, lw, ay, preferAbove, placed, pad, labelH, start) {
+  // Check dots that could overlap horizontally (considering both dot and label width)
+  const hReach = Math.max(r, lw / 2) + pad;
+  const nearby = placed.filter(p => {
+    const pReach = Math.max(p.r, p.lw / 2) + pad;
+    return Math.abs(p.x - x) < hReach + pReach;
+  });
 
-  const STEP  = Math.max(2, r * 0.5);   // step proportional to dot size
+  const STEP  = Math.max(3, r * 0.6);
   const MIN_Y = H * 0.03;
   const MAX_Y = H * 0.97;
 
@@ -2199,11 +2205,23 @@ function _resolveY(x, r, ay, preferAbove, placed, pad, start) {
       const y = ay + dir * offset;
       if (y < MIN_Y || y > MAX_Y) break;
 
-      // Collision check: every nearby dot must be far enough away
+      // Collision check using axis-aligned bounding boxes that include
+      // the dot AND its label above/below. This prevents text overlap.
       const clear = nearby.every(p => {
+        // Dot-to-dot circular distance
         const dx = x - p.x, dy = y - p.y;
-        const need = r + p.r + pad;
-        return dx * dx + dy * dy >= need * need;
+        const dotNeed = r + p.r + pad;
+        const dotClear = dx * dx + dy * dy >= dotNeed * dotNeed;
+
+        // Label-to-label vertical overlap check:
+        // Each dot's label extends ~labelH pixels above (if above axis) or below.
+        // We need vertical separation of at least (r + labelH + pad) between
+        // dots that are horizontally close enough for labels to overlap.
+        const labelOverlapX = Math.abs(dx) < (lw / 2 + p.lw / 2 + 6);
+        const vNeed = r + p.r + labelH + pad;
+        const labelClear = !labelOverlapX || Math.abs(dy) >= vNeed;
+
+        return dotClear && labelClear;
       });
       if (clear) return y;
     }
@@ -2263,15 +2281,24 @@ function visibleEvents() {
 function labelSet(evs) {
   const sorted = [...evs].sort((a, b) => b.imp - a.imp);
   const shown  = new Set();
-  const used   = [];
+  const used   = [];     // [{x, y, w}]
+  const ay     = axisY();
   for (const ev of sorted) {
     const x  = yearToX(ev.year);
+    const y  = eventY(ev);
     const lw = ev.name.length * 6.5 + 8;
-    const clash = used.some(u => Math.abs(u.x - x) < (u.w / 2 + lw / 2 + 12));
+    const r  = Math.max(4, ev.imp * 9.5);
+    // Label sits above or below the dot
+    const labelY = y < ay ? y - r - 10 : y + r + 10;
+    // Check clash: labels must not overlap in both X and Y
+    const clash = used.some(u =>
+      Math.abs(u.x - x) < (u.w / 2 + lw / 2 + 10) &&
+      Math.abs(u.y - labelY) < 16
+    );
     const force = ev === hoveredEv || ev === selectedEv || ev.imp >= 0.98;
     if (!clash || force) {
       shown.add(ev.id);
-      if (!clash) used.push({ x, w: lw });
+      if (!clash) used.push({ x, y: labelY, w: lw });
     }
   }
   return shown;
