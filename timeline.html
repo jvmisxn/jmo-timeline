@@ -261,7 +261,8 @@
 
     /* ── Main layout ────────────────────────── */
     .main { flex: 1; display: flex; overflow: hidden; position: relative; min-height: 0; isolation: isolate; }
-    .left-col { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+    .left-col { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; transition: margin-right .3s cubic-bezier(.16,1,.3,1); }
+    .main.panel-open .left-col { margin-right: 420px; }
 
     /* ── Map ────────────────────────────────── */
     #map { height: 380px; flex-shrink: 0; background: var(--bg); position: relative; }
@@ -337,53 +338,41 @@
     #tooltip .tt-yr   { font-size: .62rem; color: var(--accent-hi); margin-bottom: 4px; font-weight: 500; }
     #tooltip .tt-desc { font-size: .67rem; color: var(--text-dim); line-height: 1.45; }
 
-    /* ── Popup (floating dot card) ──────────── */
+    /* ── Side Panel ─────────────────────────── */
     #popup {
-      position: absolute; z-index: 1200;
-      width: 360px; max-height: 64vh;
-      background: rgba(11,11,28,.97); backdrop-filter: blur(24px);
-      border: 1px solid var(--border-hi);
-      border-radius: var(--radius-lg);
-      box-shadow: 0 24px 64px rgba(0,0,0,.85),
-                  0 0 0 1px rgba(99,102,241,.14),
-                  inset 0 1px 0 rgba(255,255,255,.05);
+      position: absolute; top: 0; right: 0; bottom: 0;
+      width: 420px; z-index: 1200;
+      background: var(--surface);
+      border-left: 1px solid var(--border-hi);
       display: flex; flex-direction: column; overflow: hidden;
-      opacity: 0; pointer-events: none;
-      transform: translateY(10px) scale(0.95);
-      transition: opacity .2s cubic-bezier(.16,1,.3,1), transform .2s cubic-bezier(.16,1,.3,1);
+      transform: translateX(100%);
+      transition: transform .3s cubic-bezier(.16,1,.3,1);
     }
-    #popup.open { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); }
+    #popup.open { transform: translateX(0); }
 
-    /* Arrow */
-    .pu-arrow {
-      position: absolute; width: 12px; height: 12px;
-      background: rgba(11,11,28,.97); border: 1px solid var(--border-hi);
-      border-radius: 2px; transform: rotate(45deg); z-index: 1;
-    }
-    #popup.arrow-above .pu-arrow { bottom: -6px; border-top-color: transparent; border-left-color: transparent; }
-    #popup.arrow-below .pu-arrow { top: -6px; border-bottom-color: transparent; border-right-color: transparent; }
-
-    /* Popup header */
+    /* Panel header — large, dramatic */
     .ph {
-      display: flex; align-items: flex-start; justify-content: space-between;
-      padding: 16px 16px 12px; border-bottom: 1px solid var(--border);
-      position: relative; z-index: 2;
-      background: linear-gradient(180deg, var(--surface3) 0%, transparent 100%);
+      padding: 20px 22px 16px; border-bottom: 1px solid var(--border);
+      position: relative; z-index: 2; flex-shrink: 0;
+      background: linear-gradient(180deg, var(--surface2) 0%, var(--surface) 100%);
     }
-    .ph h2 { font-size: .92rem; font-weight: 700; line-height: 1.35; flex: 1; color: var(--text); }
+    .ph-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+    .ph h2 { font-size: 1.1rem; font-weight: 700; line-height: 1.35; flex: 1; color: var(--text); }
     .ph-close {
-      width: 24px; height: 24px; background: var(--surface3);
+      width: 28px; height: 28px; background: var(--surface3);
       border: 1px solid var(--border-hi); color: var(--muted);
       border-radius: var(--radius-sm); cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      font-size: .75rem; margin-left: 10px; transition: all .15s; flex-shrink: 0;
+      font-size: .8rem; transition: all .15s; flex-shrink: 0;
     }
     .ph-close:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .ph-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    .ph-loc-row { display: flex; flex-wrap: wrap; gap: 12px; }
 
     /* Filter row */
     .ph-filter {
-      padding: 8px 16px; border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; gap: 8px;
+      padding: 8px 22px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px; flex-shrink: 0;
     }
     .filter-related-btn {
       font-size: .62rem; font-family: inherit;
@@ -395,22 +384,49 @@
     .filter-related-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
     .filter-note { font-size: .58rem; color: var(--muted); }
 
-    /* Popup body */
-    .pb { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
-    .pmeta { display: flex; flex-wrap: wrap; gap: 5px; }
+    /* Panel body — scrollable, generous spacing */
+    .pb { flex: 1; overflow-y: auto; padding: 18px 22px; display: flex; flex-direction: column; gap: 18px; }
+
+    /* Meta tags */
     .mtag {
       background: var(--surface3); border: 1px solid var(--border-hi);
-      border-radius: 20px; padding: 2px 10px; font-size: .6rem;
+      border-radius: 20px; padding: 3px 12px; font-size: .64rem;
       color: var(--text-dim); letter-spacing: .02em;
     }
-    .pdesc   { font-size: .79rem; line-height: 1.7;  color: var(--text); }
-    .pdetail { font-size: .73rem; line-height: 1.75; color: var(--text-dim); }
+
+    /* Content sections */
+    .pdesc   { font-size: .88rem; line-height: 1.8; color: var(--text); }
+    .pdetail { font-size: .82rem; line-height: 1.85; color: var(--text-dim); }
     .psect   {
-      font-size: .58rem; font-weight: 700; text-transform: uppercase;
+      font-size: .6rem; font-weight: 700; text-transform: uppercase;
       letter-spacing: .1em; color: var(--muted); margin-bottom: 6px;
+      padding-bottom: 6px; border-bottom: 1px solid var(--border);
     }
-    .map-loc-tag { font-size: .62rem; color: var(--accent-hi); display: flex; align-items: center; gap: 5px; }
-    .span-tag    { font-size: .62rem; color: var(--text-dim);  display: flex; align-items: center; gap: 5px; }
+    .map-loc-tag { font-size: .68rem; color: var(--accent-hi); display: flex; align-items: center; gap: 5px; }
+    .span-tag    { font-size: .68rem; color: var(--text-dim);  display: flex; align-items: center; gap: 5px; }
+
+    /* Region legend in panel */
+    .region-legend { display: flex; flex-direction: column; gap: 4px; }
+    .region-legend-item {
+      display: flex; align-items: center; gap: 8px; font-size: .66rem; color: var(--text-dim);
+    }
+    .region-legend-swatch {
+      width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,.15);
+    }
+
+    /* Region tooltip on map */
+    .region-tooltip {
+      background: var(--surface2) !important;
+      color: var(--text-dim) !important;
+      border: 1px solid var(--border-hi) !important;
+      border-radius: var(--radius-sm) !important;
+      font-size: .65rem !important;
+      padding: 2px 7px !important;
+      box-shadow: 0 2px 8px rgba(0,0,0,.4) !important;
+      letter-spacing: .02em;
+    }
+    .region-tooltip::before { border: none !important; }
 
     /* ── Gallery ────────────────────────────── */
     .gallery-scroll { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
@@ -454,8 +470,8 @@
     /* ── Wikipedia extract ──────────────────── */
     .wiki-section { display: flex; flex-direction: column; gap: 8px; }
     .wiki-extract {
-      font-size: .71rem; line-height: 1.75; color: var(--text-dim);
-      display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical;
+      font-size: .78rem; line-height: 1.8; color: var(--text-dim);
+      display: -webkit-box; -webkit-line-clamp: 8; -webkit-box-orient: vertical;
       overflow: hidden;
     }
     .wiki-extract.expanded { -webkit-line-clamp: unset; }
@@ -553,13 +569,17 @@
 
       .hint { font-size: .56rem; padding: 4px 12px; bottom: 8px; }
 
-      #popup { width: calc(100vw - 24px) !important; max-height: 56vh; left: 12px !important; }
-      .pu-arrow { display: none; }
+      .main.panel-open .left-col { margin-right: 0; }
+      #popup { width: 100% !important; max-height: 55vh;
+        top: auto !important; bottom: 0; border-left: none;
+        border-top: 1px solid var(--border-hi); border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+        transform: translateY(100%); }
+      #popup.open { transform: translateY(0); }
 
-      .ph  { padding: 12px 14px 10px; }
-      .ph h2 { font-size: .87rem; }
-      .ph-filter { padding: 6px 14px; }
-      .pb  { padding: 10px 14px; gap: 10px; }
+      .ph  { padding: 14px 16px 10px; }
+      .ph h2 { font-size: .95rem; }
+      .ph-filter { padding: 6px 16px; }
+      .pb  { padding: 12px 16px; gap: 14px; }
 
       .gallery-img-wrap      { width: 120px; }
       .gallery-img-wrap img  { width: 120px; height: 75px; }
@@ -637,21 +657,30 @@
   </div>
 
   <div id="popup">
-    <div class="pu-arrow"></div>
     <div class="ph">
-      <h2 id="panelTitle"></h2>
-      <button class="ph-close" id="panelClose">✕</button>
+      <div class="ph-top">
+        <h2 id="panelTitle"></h2>
+        <button class="ph-close" id="panelClose">✕</button>
+      </div>
+      <div class="ph-meta" id="panelMeta"></div>
+      <div class="ph-loc-row">
+        <div class="map-loc-tag" id="panelLoc"></div>
+        <div class="span-tag"    id="panelSpan"></div>
+      </div>
     </div>
     <div class="ph-filter">
       <button id="btnFilterRelated" class="filter-related-btn">🔗 Show related only</button>
       <span class="filter-note" id="filterNote"></span>
     </div>
     <div class="pb">
-      <div class="pmeta" id="panelMeta"></div>
-      <div class="map-loc-tag" id="panelLoc"></div>
-      <div class="span-tag"    id="panelSpan"></div>
-      <p class="pdesc"         id="panelDesc"></p>
-      <p class="pdetail"       id="panelDetail"></p>
+      <div>
+        <p class="pdesc" id="panelDesc"></p>
+      </div>
+      <div>
+        <div class="psect">Details</div>
+        <p class="pdetail" id="panelDetail"></p>
+      </div>
+      <div id="panelRegions"></div>
       <div id="panelGallery"></div>
       <div id="panelWiki"></div>
       <div id="panelRel"></div>
@@ -2005,6 +2034,134 @@ leafMap.whenReady(() => {
 });
 
 let mapMarker = null;
+let mapRegionLayers = [];   // Leaflet layers for region highlights
+
+// ═══════════════════════════════════════════════
+//  EVENT REGION DATA — geographic highlights for the map
+//  Each entry: { label, lat, lng, radius (km), color }
+//  Wars/conflicts get multiple regions with different colors
+// ═══════════════════════════════════════════════
+const EVENT_REGIONS = {
+  e_wwi: [
+    { label: 'Western Front', lat: 49.0, lng: 3.0, radius: 350, color: '#f87171' },
+    { label: 'Central Powers (Germany)', lat: 51.2, lng: 10.5, radius: 400, color: '#fb923c' },
+    { label: 'Eastern Front', lat: 52.0, lng: 22.0, radius: 450, color: '#fbbf24' },
+    { label: 'Ottoman Theatre', lat: 38.0, lng: 35.0, radius: 400, color: '#f97316' },
+  ],
+  e_wwii: [
+    { label: 'Allied Powers (Western Europe)', lat: 48.8, lng: 2.3, radius: 500, color: '#60a5fa' },
+    { label: 'Axis Powers (Germany)', lat: 51.2, lng: 10.5, radius: 350, color: '#f87171' },
+    { label: 'Pacific Theatre (Japan)', lat: 36.0, lng: 138.0, radius: 500, color: '#fb923c' },
+    { label: 'Eastern Front (USSR)', lat: 55.0, lng: 37.6, radius: 600, color: '#fbbf24' },
+  ],
+  e_us_civil_war: [
+    { label: 'Union (Northern states)', lat: 41.0, lng: -74.0, radius: 500, color: '#60a5fa' },
+    { label: 'Confederacy (Southern states)', lat: 33.5, lng: -85.0, radius: 500, color: '#f87171' },
+  ],
+  e_amer_rev: [
+    { label: 'Thirteen Colonies', lat: 38.0, lng: -77.0, radius: 450, color: '#60a5fa' },
+    { label: 'British Crown', lat: 52.5, lng: -1.5, radius: 300, color: '#f87171' },
+  ],
+  e_french_rev: [
+    { label: 'Revolutionary France', lat: 47.0, lng: 2.5, radius: 400, color: '#60a5fa' },
+  ],
+  e_napoleon: [
+    { label: 'French Empire', lat: 47.0, lng: 2.5, radius: 400, color: '#60a5fa' },
+    { label: 'Coalition Forces', lat: 52.0, lng: 13.0, radius: 500, color: '#f87171' },
+    { label: 'Russian Campaign', lat: 55.8, lng: 37.6, radius: 400, color: '#fbbf24' },
+  ],
+  e_mongols: [
+    { label: 'Mongol Empire (core)', lat: 47.9, lng: 106.9, radius: 500, color: '#fb923c' },
+    { label: 'Conquered territories (China)', lat: 35.0, lng: 105.0, radius: 600, color: '#f87171' },
+    { label: 'Conquered territories (Persia)', lat: 33.0, lng: 52.0, radius: 500, color: '#fbbf24' },
+    { label: 'Kievan Rus invasion', lat: 50.5, lng: 30.5, radius: 350, color: '#c084fc' },
+  ],
+  e_crusades: [
+    { label: 'Crusader states', lat: 32.0, lng: 35.5, radius: 200, color: '#60a5fa' },
+    { label: 'European origin', lat: 48.0, lng: 5.0, radius: 500, color: '#818cf8' },
+    { label: 'Muslim territories', lat: 30.0, lng: 40.0, radius: 500, color: '#10b981' },
+  ],
+  e_alexander: [
+    { label: 'Macedon (origin)', lat: 40.8, lng: 22.5, radius: 200, color: '#60a5fa' },
+    { label: 'Persian Empire (conquered)', lat: 32.0, lng: 52.0, radius: 700, color: '#f87171' },
+    { label: 'Egypt (conquered)', lat: 30.0, lng: 31.0, radius: 300, color: '#fbbf24' },
+    { label: 'Eastern campaign (India)', lat: 30.0, lng: 70.0, radius: 350, color: '#fb923c' },
+  ],
+  e_rome_fall: [
+    { label: 'Western Roman Empire', lat: 42.0, lng: 12.5, radius: 600, color: '#f87171' },
+    { label: 'Eastern (Byzantine)', lat: 41.0, lng: 29.0, radius: 400, color: '#818cf8' },
+    { label: 'Germanic invaders', lat: 52.0, lng: 10.0, radius: 400, color: '#fb923c' },
+  ],
+  e_caesar: [
+    { label: 'Roman Empire', lat: 41.9, lng: 12.5, radius: 700, color: '#f87171' },
+  ],
+  e_persia: [
+    { label: 'Achaemenid Empire', lat: 32.0, lng: 53.0, radius: 800, color: '#fb923c' },
+  ],
+  e_silk_road: [
+    { label: 'China (origin)', lat: 35.0, lng: 108.0, radius: 400, color: '#f59e0b' },
+    { label: 'Central Asian corridor', lat: 40.0, lng: 65.0, radius: 500, color: '#fb923c' },
+    { label: 'Mediterranean (destination)', lat: 38.0, lng: 28.0, radius: 400, color: '#10b981' },
+  ],
+  e_slave_trade: [
+    { label: 'West Africa (origin)', lat: 8.0, lng: -2.0, radius: 600, color: '#f87171' },
+    { label: 'Americas (destination)', lat: 15.0, lng: -60.0, radius: 700, color: '#818cf8' },
+    { label: 'Atlantic crossing', lat: 15.0, lng: -35.0, radius: 400, color: '#f59e0b' },
+  ],
+  e_columbus: [
+    { label: 'Spain (departure)', lat: 37.4, lng: -6.0, radius: 200, color: '#60a5fa' },
+    { label: 'Caribbean (arrival)', lat: 22.0, lng: -75.0, radius: 400, color: '#10b981' },
+  ],
+  e_ooa: [
+    { label: 'Africa (origin)', lat: 9.0, lng: 38.0, radius: 500, color: '#f59e0b' },
+    { label: 'Arabian route', lat: 15.0, lng: 45.0, radius: 300, color: '#fb923c' },
+    { label: 'Southeast Asia', lat: 5.0, lng: 100.0, radius: 600, color: '#10b981' },
+    { label: 'Europe', lat: 48.0, lng: 10.0, radius: 500, color: '#60a5fa' },
+  ],
+  e_black_death: [
+    { label: 'Central Asia (origin)', lat: 40.0, lng: 65.0, radius: 400, color: '#f87171' },
+    { label: 'Europe (devastating spread)', lat: 48.0, lng: 10.0, radius: 700, color: '#f43f5e' },
+    { label: 'Middle East', lat: 33.0, lng: 44.0, radius: 400, color: '#fb923c' },
+  ],
+  e_vietnam: [
+    { label: 'North Vietnam', lat: 21.0, lng: 106.0, radius: 250, color: '#f87171' },
+    { label: 'South Vietnam', lat: 11.0, lng: 107.0, radius: 250, color: '#60a5fa' },
+    { label: 'United States', lat: 39.0, lng: -98.0, radius: 800, color: '#818cf8' },
+  ],
+  e_cuban_missile: [
+    { label: 'Cuba (missiles)', lat: 22.0, lng: -80.0, radius: 200, color: '#f87171' },
+    { label: 'United States', lat: 38.0, lng: -97.0, radius: 700, color: '#60a5fa' },
+    { label: 'Soviet Union', lat: 56.0, lng: 38.0, radius: 700, color: '#fb923c' },
+  ],
+  e_decolonise: [
+    { label: 'India', lat: 22.0, lng: 79.0, radius: 600, color: '#10b981' },
+    { label: 'Africa', lat: 5.0, lng: 20.0, radius: 900, color: '#fb923c' },
+    { label: 'Southeast Asia', lat: 5.0, lng: 110.0, radius: 500, color: '#f59e0b' },
+    { label: 'European colonial powers', lat: 50.0, lng: 5.0, radius: 400, color: '#818cf8' },
+  ],
+  e_thirty_years: [
+    { label: 'Holy Roman Empire', lat: 50.0, lng: 10.0, radius: 400, color: '#f87171' },
+    { label: 'Sweden', lat: 60.0, lng: 18.0, radius: 300, color: '#60a5fa' },
+    { label: 'France', lat: 47.0, lng: 2.5, radius: 300, color: '#818cf8' },
+  ],
+  e_hundred_years: [
+    { label: 'England', lat: 52.0, lng: -1.5, radius: 300, color: '#f87171' },
+    { label: 'France', lat: 47.0, lng: 2.5, radius: 350, color: '#60a5fa' },
+  ],
+  e_ottoman: [
+    { label: 'Ottoman Empire', lat: 39.0, lng: 32.0, radius: 700, color: '#fb923c' },
+  ],
+  e_han_dynasty: [
+    { label: 'Han Dynasty China', lat: 34.0, lng: 108.0, radius: 700, color: '#f59e0b' },
+  ],
+  e_egypt: [
+    { label: 'Ancient Egypt', lat: 26.0, lng: 32.0, radius: 400, color: '#f59e0b' },
+  ],
+  e_islam: [
+    { label: 'Arabian Peninsula', lat: 24.0, lng: 44.0, radius: 400, color: '#10b981' },
+    { label: 'Rashidun expansion', lat: 33.0, lng: 44.0, radius: 600, color: '#34d399' },
+  ],
+};
 
 function updateMap(ev) {
   if (mapMarker) { leafMap.removeLayer(mapMarker); mapMarker = null; }
@@ -2019,12 +2176,63 @@ function updateMap(ev) {
     iconSize:[14,14], iconAnchor:[7,7],
   });
   mapMarker = L.marker([lat,lng],{icon}).addTo(leafMap);
-  leafMap.flyTo([lat,lng], zoom, { duration:0.9 });
+  // If regions exist, fit bounds to show all of them; otherwise flyTo the point
+  const regions = EVENT_REGIONS[ev.id];
+  if (regions && regions.length > 1) {
+    const allPts = regions.map(r => [r.lat, r.lng]);
+    allPts.push([lat, lng]);
+    leafMap.flyToBounds(L.latLngBounds(allPts).pad(0.3), { duration: 0.9, maxZoom: zoom });
+  } else {
+    leafMap.flyTo([lat,lng], zoom, { duration:0.9 });
+  }
 }
 
 function clearMapMarker() {
   if (mapMarker) { leafMap.removeLayer(mapMarker); mapMarker = null; }
   document.getElementById('mapHint').classList.remove('hidden');
+}
+
+function updateMapRegions(ev) {
+  clearMapRegions();
+  const regions = EVENT_REGIONS[ev.id];
+  if (!regions || !regions.length) {
+    document.getElementById('panelRegions').innerHTML = '';
+    return;
+  }
+  // Draw circles on the map
+  regions.forEach(r => {
+    const circle = L.circle([r.lat, r.lng], {
+      radius: r.radius * 1000, // km to meters
+      color: r.color,
+      fillColor: r.color,
+      fillOpacity: 0.12,
+      weight: 1.5,
+      opacity: 0.6,
+      dashArray: '6 4',
+    }).addTo(leafMap);
+    // Add a label tooltip
+    circle.bindTooltip(r.label, {
+      permanent: true, direction: 'center',
+      className: 'region-tooltip',
+    });
+    mapRegionLayers.push(circle);
+  });
+
+  // Show legend in panel
+  document.getElementById('panelRegions').innerHTML = `
+    <div class="psect">Regions</div>
+    <div class="region-legend">
+      ${regions.map(r => `
+        <div class="region-legend-item">
+          <div class="region-legend-swatch" style="background:${r.color}40;border-color:${r.color}"></div>
+          <span>${r.label}</span>
+        </div>`).join('')}
+    </div>`;
+}
+
+function clearMapRegions() {
+  mapRegionLayers.forEach(l => leafMap.removeLayer(l));
+  mapRegionLayers = [];
 }
 
 // ── Map resize handle ──
@@ -2133,8 +2341,6 @@ function scheduleRender() {
   rafPending = true;
   requestAnimationFrame(() => {
     rafPending = false; render();
-    // Keep popup anchored to its dot as the timeline pans/zooms
-    if (panel.classList.contains('open') && selectedEv) positionPopup(selectedEv);
     // Trigger fetching of Wikipedia year events when zoomed in enough
     maybeLoadWikiEvents();
   });
@@ -2611,7 +2817,7 @@ function openPanel(ev) {
   const rel = EVENTS
     .filter(e => e.id !== ev.id && isRelatedTo(e, ev))
     .sort((a, b) => Math.abs(a.year - ev.year) - Math.abs(b.year - ev.year))
-    .slice(0, 6);
+    .slice(0, 8);
 
   const relEl = document.getElementById('panelRel');
   relEl.innerHTML = rel.length
@@ -2685,7 +2891,6 @@ function openPanel(ev) {
             Read on Wikipedia
           </a>
         </div>`;
-      // Safe: set text via textContent, not innerHTML
       const extractEl = document.getElementById(extractId);
       extractEl.textContent = text;
       const expandBtn = document.getElementById(expandId);
@@ -2693,15 +2898,16 @@ function openPanel(ev) {
         const expanded = extractEl.classList.toggle('expanded');
         expandBtn.textContent = expanded ? 'Show less ↑' : 'Show more ↓';
       });
-      // Hide expand btn if text is short enough to not need it
-      if (text.length < 300) expandBtn.style.display = 'none';
+      if (text.length < 400) expandBtn.style.display = 'none';
     });
   } else if (ev.isDynamic) {
-    // Dynamic events: show the full description (escaped to prevent XSS)
     wikiEl.innerHTML = `<div class="wiki-section"><p class="wiki-extract expanded">${escapeHTML(ev.fullDesc || ev.name)}</p></div>`;
   } else {
     wikiEl.innerHTML = '';
   }
+
+  // Map region highlights
+  updateMapRegions(ev);
 
   // Sync story navigation index
   if (activeStory) {
@@ -2710,69 +2916,13 @@ function openPanel(ev) {
     updateStoryNav();
   }
 
-  positionPopup(ev);
+  // Open the side panel and resize layout
   panel.classList.add('open');
+  mainEl.classList.add('panel-open');
   updateMap(ev);
+  // Resize after transition to account for new canvas width
+  setTimeout(() => { resize(); leafMap.invalidateSize(); }, 320);
   scheduleRender();
-}
-
-function positionPopup(ev) {
-  const mainRect   = mainEl.getBoundingClientRect();
-  const canvasRect = area.getBoundingClientRect();
-  const isMobile   = window.innerWidth <= 768;
-
-  const dotX = yearToX(ev.year);
-  const dotY = eventY(ev);
-
-  // dot position relative to .main
-  const relX = (canvasRect.left - mainRect.left) + dotX;
-  const relY = (canvasRect.top  - mainRect.top)  + dotY;
-
-  const PW    = isMobile ? mainRect.width - 24 : 340;
-  const GAP   = 14;   // gap between dot edge and popup
-  const DOT_R = Math.max(4, (selectedEv?.imp ?? 5) * 9.5) + 6;
-
-  // Temporarily show to measure height
-  panel.style.width    = PW + 'px';
-  panel.style.left     = '-9999px';
-  panel.style.top      = '-9999px';
-  panel.style.opacity  = '0';
-  panel.style.display  = 'flex';
-  const PH = Math.min(panel.scrollHeight, window.innerHeight * 0.62);
-  panel.style.display  = '';
-  panel.style.opacity  = '';
-
-  // Horizontal: center popup on dot, clamped within main
-  let left = relX - PW / 2;
-  if (isMobile) left = 12;
-  else left = Math.max(8, Math.min(mainRect.width - PW - 8, left));
-
-  // Arrow horizontal offset (relative to popup)
-  const arrowX = Math.max(18, Math.min(PW - 30, relX - left));
-
-  // Vertical: prefer above dot
-  let top, arrowClass;
-  const spaceAbove = relY - DOT_R - GAP;
-  const spaceBelow = mainRect.height - relY - DOT_R - GAP;
-
-  if (spaceAbove >= PH || spaceAbove >= spaceBelow) {
-    top        = relY - DOT_R - GAP - PH;
-    arrowClass = 'arrow-above';
-  } else {
-    top        = relY + DOT_R + GAP;
-    arrowClass = 'arrow-below';
-  }
-  top = Math.max(8, Math.min(mainRect.height - PH - 8, top));
-
-  panel.style.left   = left + 'px';
-  panel.style.top    = top  + 'px';
-  panel.style.width  = PW   + 'px';
-
-  const arrowEl = panel.querySelector('.pu-arrow');
-  arrowEl.style.left = arrowX + 'px';
-
-  panel.classList.remove('arrow-above', 'arrow-below');
-  panel.classList.add(arrowClass);
 }
 
 // ── Lightbox ──
@@ -2793,8 +2943,12 @@ function closePanel() {
   document.getElementById('btnFilterRelated').classList.remove('active');
   document.getElementById('panelGallery').innerHTML = '';
   document.getElementById('panelWiki').innerHTML = '';
+  document.getElementById('panelRegions').innerHTML = '';
   clearMapMarker();
+  clearMapRegions();
   panel.classList.remove('open');
+  mainEl.classList.remove('panel-open');
+  setTimeout(() => { resize(); leafMap.invalidateSize(); }, 320);
   scheduleRender();
 }
 
@@ -3292,7 +3446,6 @@ function resize() {
 
 window.addEventListener('resize', () => {
   resize();
-  if (panel.classList.contains('open') && selectedEv) positionPopup(selectedEv);
   leafMap.invalidateSize();
   // Re-fit world to new container width
   const z = mapWidthZoom();
