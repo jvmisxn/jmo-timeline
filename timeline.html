@@ -1624,84 +1624,258 @@ async function fetchWikiExtract(title) {
   } catch { return ''; }
 }
 
-// ── Dynamic Wikipedia year events ──────────────────────
-function parseWikiYearEvents(year, wikitext) {
+// ═══════════════════════════════════════════════
+//  MULTI-TIER DYNAMIC WIKIPEDIA LOADING
+//
+//  Three granularities fill in events as the user zooms:
+//    century  (scale 0.5–5)    → Wikipedia "15th century" articles
+//    decade   (scale 5–25)     → Wikipedia "1920s" articles
+//    year     (scale 25+)      → Wikipedia "1969" articles
+//
+//  Each tier fetches wikitext, parses the Events section,
+//  and injects lightweight dots into `dynamicEvents`.
+// ═══════════════════════════════════════════════
+
+// ── Shared wikitext helpers ──────────────────────
+function _stripWikiMarkup(raw) {
+  const clean = raw.replace(/\[\[([^\]|]*)\|([^\]]+)\]\]/g, '$2')
+                   .replace(/\[\[([^\]]+)\]\]/g, '$1')
+                   .replace(/\{\{[^}]*\}\}/g, '')
+                   .replace(/'{2,3}/g, '');
+  const tmp = document.createElement('div');
+  tmp.innerHTML = clean;
+  return (tmp.textContent || '').trim();
+}
+
+async function _fetchWikitext(title) {
+  const url = `https://en.wikipedia.org/w/api.php?` + new URLSearchParams({
+    action: 'query', titles: title, prop: 'revisions',
+    rvprop: 'content', rvslots: 'main', format: 'json', origin: '*',
+  });
+  const res  = await fetch(url);
+  const data = await res.json();
+  const page = Object.values(data.query.pages)[0];
+  if (page?.missing) return '';
+  return page?.revisions?.[0]?.slots?.main?.['*'] || '';
+}
+
+function _guessCat(text) {
+  const t = text.toLowerCase();
+  if (/\b(war|battle|siege|invad|attack|bomb|milit|army|navy)\b/.test(t)) return 'conflict';
+  if (/\b(treaty|elect|king|queen|emperor|parliament|law|constitution|president|republic|colony)\b/.test(t)) return 'politics';
+  if (/\b(discover|invent|engine|telescope|vaccine|theory|science|math|phys)\b/.test(t)) return 'technology';
+  if (/\b(church|pope|bishop|mosque|temple|religi|christian|islam|buddhis|hindu)\b/.test(t)) return 'religion';
+  if (/\b(earthquake|flood|hurricane|famine|plague|eruption|drought|climate)\b/.test(t)) return 'environment';
+  if (/\b(voyage|expedition|explore|sail|land|coast|discover.*land)\b/.test(t)) return 'exploration';
+  if (/\b(born|die|paint|compose|writ|novel|poet|art|music|university|book)\b/.test(t)) return 'society';
+  return 'society';  // default
+}
+
+// ── CENTURY-LEVEL PARSER ─────────────────────────
+// Wikipedia articles like "15th century" have an Events section
+// with sub-headers by decade or bullet points by year.
+function _parseCenturyEvents(centuryKey, wikitext) {
   const results = [];
-  // Extract the "Events" section content
-  const evSection = wikitext.match(/==\s*Events\s*==\s*([\s\S]*?)(?:\n==\s|\s*$)/i)?.[1] || '';
+  const evSection = wikitext.match(/==\s*Events\s*==\s*([\s\S]*?)(?:\n==\s*[^=]|\s*$)/i)?.[1] || '';
   const lines = evSection.split('\n');
   for (const line of lines) {
-    const m = line.match(/^\*+\s*(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d+)\s*[–\-]\s*(.+)/i);
+    // Match lines like "* 1453 – Fall of Constantinople"
+    // or "* c. 1440 – Gutenberg invents..."
+    const m = line.match(/^\*+\s*(?:c\.\s*)?(\d{1,4})\s*(?:BC|BCE|AD|CE)?\s*[–\-—:]\s*(.+)/i);
     if (!m) continue;
-    const months = {january:0,february:1,march:2,april:3,may:4,june:5,
-                    july:6,august:7,september:8,october:9,november:10,december:11};
-    const month  = months[m[1].toLowerCase()];
-    const day    = parseInt(m[2], 10);
-    // Strip wiki links [[Target|Label]] → Label or Target, then sanitise HTML via DOM
-    const raw    = m[3].replace(/\[\[([^\]|]*)\|([^\]]+)\]\]/g, '$2')
-                       .replace(/\[\[([^\]]+)\]\]/g, '$1');
-    const tmp    = document.createElement('div');
-    tmp.innerHTML = raw;
-    const desc   = (tmp.textContent || '').trim();
-    if (!desc) continue;
-    // Fractional year: year + (month * 30.44 + day) / 365.25
+    let year = parseInt(m[1], 10);
+    // Handle BCE centuries
+    if (/\b(BC|BCE)\b/i.test(line) || centuryKey < 0) year = -year;
+    const desc = _stripWikiMarkup(m[2]);
+    if (!desc || desc.length < 10) continue;
+    const cat = _guessCat(desc);
+    results.push({
+      id: `dyn_c${centuryKey}_${year}_${results.length}`,
+      name: desc.slice(0, 60) + (desc.length > 60 ? '…' : ''),
+      fullDesc: desc, year, baseYear: centuryKey,
+      dynLevel: 'century', minTier: 3, cat, imp: 0.35, isDynamic: true,
+    });
+  }
+  return results;
+}
+
+function _centuryTitle(centuryKey) {
+  // centuryKey: 15 → "15th century", -5 → "5th century BC"
+  const abs = Math.abs(centuryKey);
+  const suffix = abs === 1 ? 'st' : abs === 2 ? 'nd' : abs === 3 ? 'rd' : 'th';
+  return centuryKey < 0
+    ? `${abs}${suffix}_century_BC`
+    : `${abs}${suffix}_century`;
+}
+
+function _yearToCentury(yr) {
+  // 1453 → 15, -500 → -5, 2024 → 21
+  if (yr > 0) return Math.ceil(yr / 100);
+  return -Math.ceil(Math.abs(yr) / 100);
+}
+
+async function fetchCenturyEvents(centuryKey) {
+  const fetched = _wikiFetched.century, fetching = _wikiFetching.century;
+  if (fetched.has(centuryKey) || fetching.has(centuryKey)) return;
+  fetching.add(centuryKey);
+  try {
+    const wikitext = await _fetchWikitext(_centuryTitle(centuryKey));
+    if (!wikitext) { fetched.add(centuryKey); return; }
+    const evs = _parseCenturyEvents(centuryKey, wikitext);
+    dynamicEvents = dynamicEvents.filter(e => !(e.dynLevel === 'century' && e.baseYear === centuryKey)).concat(evs);
+    fetched.add(centuryKey);
+    scheduleRender();
+  } catch {
+    fetched.add(centuryKey);
+  } finally {
+    fetching.delete(centuryKey);
+  }
+}
+
+// ── DECADE-LEVEL PARSER ──────────────────────────
+// Wikipedia articles like "1920s" have Events sections
+// with year-prefixed bullets.
+function _parseDecadeEvents(decadeKey, wikitext) {
+  const results = [];
+  const evSection = wikitext.match(/==\s*Events\s*==\s*([\s\S]*?)(?:\n==\s*[^=]|\s*$)/i)?.[1] || '';
+  const lines = evSection.split('\n');
+  for (const line of lines) {
+    // Match "* 1923 – Description" or "* March 15 – Description" (year implicit from article)
+    const mYear = line.match(/^\*+\s*(\d{4})\s*[–\-—:]\s*(.+)/);
+    const mDate = line.match(/^\*+\s*(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d+)\s*[–\-—:]\s*(.+)/i);
+    if (!mYear && !mDate) continue;
+
+    let year, desc;
+    if (mYear) {
+      year = parseInt(mYear[1], 10);
+      desc = _stripWikiMarkup(mYear[2]);
+    } else {
+      // For month-day entries, use the decade midpoint as approximate year
+      year = decadeKey + 5;
+      desc = _stripWikiMarkup(mDate[3]);
+    }
+    if (!desc || desc.length < 10) continue;
+    const cat = _guessCat(desc);
+    results.push({
+      id: `dyn_d${decadeKey}_${year}_${results.length}`,
+      name: desc.slice(0, 58) + (desc.length > 58 ? '…' : ''),
+      fullDesc: desc, year, baseYear: decadeKey,
+      dynLevel: 'decade', minTier: 4, cat, imp: 0.28, isDynamic: true,
+    });
+  }
+  return results;
+}
+
+function _decadeTitle(decadeKey) {
+  // decadeKey: 1920 → "1920s", 500 → "500s", -200 → "200s BC"
+  const abs = Math.abs(decadeKey);
+  return decadeKey < 0 ? `${abs}s_BC` : `${abs}s`;
+}
+
+function _yearToDecade(yr) {
+  return Math.floor(yr / 10) * 10;
+}
+
+async function fetchDecadeEvents(decadeKey) {
+  const fetched = _wikiFetched.decade, fetching = _wikiFetching.decade;
+  if (fetched.has(decadeKey) || fetching.has(decadeKey)) return;
+  fetching.add(decadeKey);
+  try {
+    const wikitext = await _fetchWikitext(_decadeTitle(decadeKey));
+    if (!wikitext) { fetched.add(decadeKey); return; }
+    const evs = _parseDecadeEvents(decadeKey, wikitext);
+    dynamicEvents = dynamicEvents.filter(e => !(e.dynLevel === 'decade' && e.baseYear === decadeKey)).concat(evs);
+    fetched.add(decadeKey);
+    scheduleRender();
+  } catch {
+    fetched.add(decadeKey);
+  } finally {
+    fetching.delete(decadeKey);
+  }
+}
+
+// ── YEAR-LEVEL PARSER ────────────────────────────
+function _parseYearEvents(year, wikitext) {
+  const results = [];
+  const evSection = wikitext.match(/==\s*Events\s*==\s*([\s\S]*?)(?:\n==\s*[^=]|\s*$)/i)?.[1] || '';
+  const lines = evSection.split('\n');
+  const MONTHS = {january:0,february:1,march:2,april:3,may:4,june:5,
+                  july:6,august:7,september:8,october:9,november:10,december:11};
+  for (const line of lines) {
+    const m = line.match(/^\*+\s*(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d+)\s*[–\-—:]\s*(.+)/i);
+    if (!m) continue;
+    const month = MONTHS[m[1].toLowerCase()];
+    const day   = parseInt(m[2], 10);
+    const desc  = _stripWikiMarkup(m[3]);
+    if (!desc || desc.length < 10) continue;
     const fracYear = year + (month * 30.44 + day) / 365.25;
-    results.push({ id: `dyn_${year}_${month}_${day}_${results.length}`,
-                   name: desc.slice(0, 55) + (desc.length > 55 ? '…' : ''),
-                   fullDesc: desc, year: fracYear, baseYear: year,
-                   month: m[1], day,
-                   minTier: 4, cat: 'society', imp: 0.22, isDynamic: true });
+    const cat = _guessCat(desc);
+    results.push({
+      id: `dyn_y${year}_${month}_${day}_${results.length}`,
+      name: desc.slice(0, 55) + (desc.length > 55 ? '…' : ''),
+      fullDesc: desc, year: fracYear, baseYear: year,
+      month: m[1], day,
+      dynLevel: 'year', minTier: 5, cat, imp: 0.22, isDynamic: true,
+    });
   }
   return results;
 }
 
 async function fetchYearEvents(year) {
-  if (fetchedYears.has(year) || fetchingYears.has(year)) return;
-  fetchingYears.add(year);
-  // Only fetch CE years (Wikipedia year articles cover ~1 CE - present)
-  if (year < 1 || year > MAX_YEAR) { fetchedYears.add(year); fetchingYears.delete(year); return; }
-  const title = String(year);
-  const url = `https://en.wikipedia.org/w/api.php?` + new URLSearchParams({
-    action: 'query', titles: title, prop: 'revisions',
-    rvprop: 'content', rvslots: 'main', format: 'json', origin: '*',
-  });
+  const fetched = _wikiFetched.year, fetching = _wikiFetching.year;
+  if (fetched.has(year) || fetching.has(year)) return;
+  fetching.add(year);
+  if (year < 1 || year > MAX_YEAR) { fetched.add(year); fetching.delete(year); return; }
   try {
-    const res  = await fetch(url);
-    const data = await res.json();
-    const page = Object.values(data.query.pages)[0];
-    if (page.missing) { fetchedYears.add(year); return; }
-    const wikitext = page.revisions?.[0]?.slots?.main?.['*'] || '';
-    const evs = parseWikiYearEvents(year, wikitext);
-    // Remove any existing dynamic events for this year and add new ones
-    dynamicEvents = dynamicEvents.filter(e => e.baseYear !== year).concat(evs);
-    fetchedYears.add(year);
+    const wikitext = await _fetchWikitext(String(year));
+    if (!wikitext) { fetched.add(year); return; }
+    const evs = _parseYearEvents(year, wikitext);
+    dynamicEvents = dynamicEvents.filter(e => !(e.dynLevel === 'year' && e.baseYear === year)).concat(evs);
+    fetched.add(year);
     scheduleRender();
   } catch {
-    fetchedYears.add(year); // prevent retry on error
+    fetched.add(year);
   } finally {
-    fetchingYears.delete(year);
+    fetching.delete(year);
   }
 }
 
+// ── UNIFIED LOADER (called on each render) ───────
 function _doLoadWikiEvents() {
-  // Only load at very high zoom (scale > 25 px/year ≈ viewing < 50 years at once)
-  if (scale < 25) return;
-  const vMin = Math.ceil(xToYear(0));
-  const vMax = Math.floor(xToYear(W));
-  // Cap how many years we try to fetch per viewport to avoid API spam
-  const maxYears = 15;
-  let queued = 0;
-  for (let yr = Math.max(1, vMin); yr <= Math.min(MAX_YEAR, vMax); yr++) {
-    if (fetchedYears.has(yr) || fetchingYears.has(yr)) continue;
-    if (fetchingYears.size >= WIKI_MAX_CONCURRENT) break;  // concurrency limit
-    if (queued >= maxYears) break;
-    fetchYearEvents(yr);
-    queued++;
+  if (activeStory) return;   // don't load dynamic events in story mode
+  const vMin = xToYear(0), vMax = xToYear(W);
+
+  // CENTURY LEVEL — scale 0.5+ (viewing <600k years)
+  if (scale >= 0.5) {
+    const cMin = _yearToCentury(Math.max(Math.ceil(vMin), -3000));
+    const cMax = _yearToCentury(Math.min(Math.floor(vMax), MAX_YEAR));
+    for (let c = cMin; c <= cMax && _wikiInFlight() < WIKI_MAX_CONCURRENT; c++) {
+      if (c === 0) continue;  // no "0th century"
+      fetchCenturyEvents(c);
+    }
+  }
+
+  // DECADE LEVEL — scale 5+ (viewing <250 years)
+  if (scale >= 5) {
+    const dMin = _yearToDecade(Math.max(Math.ceil(vMin), -500));
+    const dMax = _yearToDecade(Math.min(Math.floor(vMax), MAX_YEAR));
+    for (let d = dMin; d <= dMax && _wikiInFlight() < WIKI_MAX_CONCURRENT; d += 10) {
+      fetchDecadeEvents(d);
+    }
+  }
+
+  // YEAR LEVEL — scale 25+ (viewing <50 years)
+  if (scale >= 25) {
+    const yMin = Math.max(1, Math.ceil(vMin));
+    const yMax = Math.min(MAX_YEAR, Math.floor(vMax));
+    let queued = 0;
+    for (let yr = yMin; yr <= yMax && _wikiInFlight() < WIKI_MAX_CONCURRENT && queued < 15; yr++) {
+      if (!_wikiFetched.year.has(yr) && !_wikiFetching.year.has(yr)) { fetchYearEvents(yr); queued++; }
+    }
   }
 }
 
 function maybeLoadWikiEvents() {
-  // Debounce: wait 300ms after last scroll/zoom before firing API calls
   clearTimeout(_wikiDebounceTimer);
   _wikiDebounceTimer = setTimeout(_doLoadWikiEvents, 300);
 }
@@ -1904,14 +2078,19 @@ let rafPending = false;
 // ── Wikipedia extract cache ──
 const wikiExtractCache = new Map();
 
-// ── Dynamic year events (fetched from Wikipedia at high zoom) ──
+// ── Dynamic events (fetched from Wikipedia at various zoom levels) ──
 let dynamicEvents = [];
-const fetchedYears   = new Set();
-const fetchingYears  = new Set();
+
+// Track fetched/fetching state per granularity
+const _wikiFetched  = { century: new Set(), decade: new Set(), year: new Set() };
+const _wikiFetching = { century: new Set(), decade: new Set(), year: new Set() };
 
 // ── Wiki fetch throttling ──
 const WIKI_MAX_CONCURRENT = 3;
 let _wikiDebounceTimer = null;
+function _wikiInFlight() {
+  return _wikiFetching.century.size + _wikiFetching.decade.size + _wikiFetching.year.size;
+}
 
 // ── Text sanitisation helper (prevent XSS from API responses) ──
 function escapeHTML(str) {
@@ -1977,7 +2156,7 @@ let _layoutSig = '';                               // cache invalidation key
 function computeLayout() {
   // H is part of the signature — layout must recompute when canvas height changes
   // (e.g. when the map resize handle is dragged)
-  const sig = `${scale.toFixed(8)}|${scrollX.toFixed(1)}|${H}|${[...activeCategories].sort()}|${filterRelated}|${activeStory?.id||''}`;
+  const sig = `${scale.toFixed(8)}|${scrollX.toFixed(1)}|${H}|${[...activeCategories].sort()}|${filterRelated}|${activeStory?.id||''}|${dynamicEvents.length}`;
   if (sig === _layoutSig) return;
   _layoutSig = sig;
   _layout = new Map();
@@ -2066,11 +2245,14 @@ function visibleEvents() {
     if (filterRelated && selectedEv && !isRelatedTo(ev, selectedEv)) return false;
     return true;
   });
-  // Inject dynamic Wikipedia events at very high zoom
-  if (scale >= 25 && !activeStory) {
+  // Inject dynamic Wikipedia events at appropriate zoom levels
+  if (!activeStory && dynamicEvents.length) {
     const dynVisible = dynamicEvents.filter(ev => {
       if (ev.year < vMin || ev.year > vMax) return false;
       if (!activeCategories.has(ev.cat)) return false;
+      // Only show dynamic events when zoom is high enough for their tier
+      if (scale < TIER_SCALE[ev.minTier]) return false;
+      if (filterRelated && selectedEv && !isRelatedTo(ev, selectedEv)) return false;
       return true;
     });
     return base.concat(dynVisible);
@@ -2372,7 +2554,7 @@ function openPanel(ev) {
 
   const cat = CATS[ev.cat] || { label:ev.cat, color:'#888' };
   const dateLabel = ev.isDynamic
-    ? `${ev.month} ${ev.day}, ${ev.baseYear}`
+    ? (ev.month && ev.day ? `${ev.month} ${ev.day}, ${ev.baseYear}` : formatYear(ev.year))
     : formatYear(ev.year);
   document.getElementById('panelMeta').innerHTML = `
     <span class="mtag" style="color:${cat.color};border-color:${cat.color}44">${cat.label}</span>
@@ -2614,7 +2796,7 @@ document.getElementById('btnFilterRelated').addEventListener('click', () => {
 function showTooltip(ev, cx, cy) {
   document.getElementById('ttTitle').textContent = ev.name;
   document.getElementById('ttYear').textContent  = ev.isDynamic
-    ? `${ev.month} ${ev.day}, ${ev.baseYear}`
+    ? (ev.month && ev.day ? `${ev.month} ${ev.day}, ${ev.baseYear}` : formatYear(ev.year))
     : formatYear(ev.year);
   document.getElementById('ttDesc').textContent  = ev.isDynamic
     ? (ev.fullDesc || ev.name)
