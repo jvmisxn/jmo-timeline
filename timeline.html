@@ -258,6 +258,37 @@
     .legend-item:hover { border-color: var(--border-hi); color: var(--text-dim); background: var(--surface3); }
     .legend-item.active { border-color: var(--border-hi); color: var(--text); background: var(--surface2); }
     .legend-item svg { flex-shrink: 0; }
+    .legend-sep { width: 1px; height: 16px; background: var(--border-hi); flex-shrink: 0; margin: 0 2px; }
+    .evidence-items { display: flex; gap: 4px; flex-wrap: nowrap; }
+    .evidence-item {
+      display: flex; align-items: center; gap: 6px; font-size: .62rem;
+      color: var(--muted); cursor: pointer; padding: 3px 10px;
+      border-radius: 20px; border: 1px solid transparent;
+      transition: all .15s; white-space: nowrap;
+    }
+    .evidence-item:hover { border-color: var(--border-hi); color: var(--text-dim); background: var(--surface3); }
+    .evidence-item.active { border-color: var(--border-hi); color: var(--text); background: var(--surface2); }
+    .evidence-swatch {
+      width: 12px; height: 12px; border-radius: 50%;
+      border: 1px solid currentColor; flex-shrink: 0; position: relative;
+    }
+    .evidence-swatch.proven { background: currentColor; }
+    .evidence-swatch.probable {
+      background: currentColor; opacity: .75;
+    }
+    .evidence-swatch.hypothesis {
+      background: transparent; border-style: dashed;
+    }
+    .evidence-swatch.traditional {
+      background: transparent;
+    }
+    .evidence-swatch.traditional::after {
+      content: ''; position: absolute; left: 2px; right: 2px; top: 50%;
+      border-top: 1px solid currentColor; transform: rotate(-35deg);
+    }
+    .evidence-swatch.reference {
+      border-radius: 3px; background: transparent;
+    }
 
     /* ── Main layout ────────────────────────── */
     .main { flex: 1; display: flex; overflow: hidden; position: relative; min-height: 0; isolation: isolate; }
@@ -393,6 +424,17 @@
       border-radius: 20px; padding: 3px 12px; font-size: .64rem;
       color: var(--text-dim); letter-spacing: .02em;
     }
+    .mtag.evidence-proven { color: #86efac; border-color: rgba(134,239,172,.35); }
+    .mtag.evidence-probable { color: #fde68a; border-color: rgba(253,230,138,.35); }
+    .mtag.evidence-hypothesis { color: #93c5fd; border-color: rgba(147,197,253,.35); border-style: dashed; }
+    .mtag.evidence-traditional { color: #f0abfc; border-color: rgba(240,171,252,.35); }
+    .mtag.evidence-reference { color: var(--muted); border-color: var(--border-hi); }
+    .evidence-note {
+      background: rgba(255,255,255,.025); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 10px 12px;
+      font-size: .74rem; line-height: 1.65; color: var(--text-dim);
+    }
+    .evidence-note strong { color: var(--text); font-weight: 600; }
 
     /* Content sections */
     .pdesc   { font-size: .88rem; line-height: 1.8; color: var(--text); }
@@ -628,6 +670,9 @@
 <div class="legend-bar" id="legendBar">
   <span class="legend-label">Filter</span>
   <div class="legend-items" id="legendItems"></div>
+  <span class="legend-sep"></span>
+  <span class="legend-label">Evidence</span>
+  <div class="evidence-items" id="evidenceItems"></div>
   <button class="legend-toggle-btn" id="legendToggleBtn">Filter</button>
 </div>
 
@@ -676,6 +721,7 @@
       <div>
         <p class="pdesc" id="panelDesc"></p>
       </div>
+      <div class="evidence-note" id="panelEvidence"></div>
       <div>
         <div class="psect">Details</div>
         <p class="pdetail" id="panelDetail"></p>
@@ -826,6 +872,39 @@ const CAT_SHAPE = {
   environment: 'hexagon',
 };
 
+const EVIDENCE = {
+  proven: {
+    label: 'Proven',
+    short: 'Proven',
+    color: '#86efac',
+    note: 'Well-supported by direct sources, archaeology, dated artifacts, inscriptions, or broad scholarly consensus.',
+  },
+  probable: {
+    label: 'Probable',
+    short: 'Probable',
+    color: '#fde68a',
+    note: 'Likely or broadly accepted, but date, location, cause, or exact framing remains approximate.',
+  },
+  hypothesis: {
+    label: 'Hypothesis',
+    short: 'Hypothesis',
+    color: '#93c5fd',
+    note: 'A debated reconstruction or proposed explanation. Useful to track, but not established fact.',
+  },
+  traditional: {
+    label: 'Traditional',
+    short: 'Tradition',
+    color: '#f0abfc',
+    note: 'A legendary, religious, oral, or literary tradition shown for context rather than as a proven event.',
+  },
+  reference: {
+    label: 'Reference',
+    short: 'Reference',
+    color: '#a1a1aa',
+    note: 'Auto-loaded reference item from Wikipedia. Treat as a pointer that still needs curation.',
+  },
+};
+
 const TIER_SCALE = [0, 0.010, 0.080, 0.70, 4.0, 18.0];
 
 const ERA_ZONES = [
@@ -890,6 +969,13 @@ const EVENTS = [
     desc:'Humans create figurative art — the oldest known symbolic expression.',
     detail:"Chauvet Cave (France, ~36,000 BCE) and Sulawesi (Indonesia, ~45,500 BCE) contain the world's oldest known figurative art. Reveals fully modern cognitive capacities — abstract thought, shared mythology, aesthetic sense." },
 
+  { id:'e_proto_world_language', name:'Proto-World Language Hypothesis', year:-50000, minTier:4, cat:'society', imp:0.45,
+    loc:null,
+    evidence:'hypothesis', confidence:0.18,
+    source:'Linguistic macrofamily speculation; no direct attestation.',
+    desc:'A proposed remote common ancestor for all human languages.',
+    detail:'Some long-range linguistic proposals imagine a single remote ancestor behind all modern languages. The idea is useful as a marker for speculative prehistory, but most linguists treat it as untestable with current evidence because sound change, borrowing, and time depth erase recoverable signals.' },
+
   { id:'e_americas', name:'Americas First Settled', year:-15000, minTier:1, cat:'biology', imp:0.85,
     loc:[65.7,-168.5,4,'Beringia / Bering Strait'],
     desc:'Humans cross from Siberia into the Americas via the Bering land bridge.',
@@ -899,6 +985,13 @@ const EVENTS = [
     loc:null,
     desc:'Ice Age giants — mammoths, mastodons, giant sloths — go extinct.',
     detail:'A combination of human overhunting and rapid climate change at the end of the last Ice Age caused the extinction of most large mammals worldwide.' },
+
+  { id:'e_younger_dryas_impact', name:'Younger Dryas Impact Hypothesis', year:-10850, minTier:4, cat:'environment', imp:0.5,
+    loc:null,
+    evidence:'hypothesis', confidence:0.32,
+    source:'Debated impact-climate hypothesis; not settled consensus.',
+    desc:'A proposed cosmic impact event is argued to have contributed to Younger Dryas cooling.',
+    detail:'The hypothesis proposes that cometary debris or an airburst helped trigger abrupt cooling, fires, and ecological disruption near the end of the Pleistocene. It remains disputed; this entry is included as a tracked theory, separate from established Younger Dryas climate change itself.' },
 
   // ── TIER 2 ──────────────────────────────────────────────────────────
   { id:'e_pottery', name:'Pottery Spreads', year:-9500, minTier:2, cat:'technology', imp:0.75,
@@ -959,6 +1052,13 @@ const EVENTS = [
     loc:[36.0,32.0,5,'Eastern Mediterranean'],
     desc:'Multiple civilisations collapse simultaneously across the Eastern Mediterranean.',
     detail:'Around 1200 BCE, the palace economies of Mycenae, Hatti, Ugarit, and others collapsed in a cascade of invasions, drought, earthquakes, and trade disruption.' },
+
+  { id:'e_trojan_war_tradition', name:'Trojan War Tradition', year:-1180, minTier:4, cat:'conflict', imp:0.52,
+    loc:[39.96,26.24,11,'Hisarlik / Troy, Turkey'],
+    evidence:'traditional', confidence:0.28,
+    source:'Greek epic tradition plus debated archaeological correlations at Troy.',
+    desc:'Greek epic tradition remembers a war between Achaeans and Troy.',
+    detail:'The Iliad and later Greek tradition describe a major war at Troy. Archaeology shows Bronze Age destruction layers at Hisarlik, but the literary war, its causes, heroes, and precise date cannot be treated as proven historical fact.' },
 
   { id:'e_phoenician', name:'Phoenician Alphabet', year:-1050, minTier:2, cat:'society', imp:0.80,
     loc:[34.12,35.65,10,'Byblos, Lebanon'],
@@ -1490,6 +1590,22 @@ const EVENTS = [
     detail:"OpenAI's ChatGPT (2022) demonstrated that large language models could reason, write, and code at near-human levels. This sparked massive investment and urgent questions about automation and existential risk." },
 ];
 
+function normalizeEventEvidence(ev) {
+  if (!ev.evidence) ev.evidence = ev.isDynamic ? 'reference' : 'proven';
+  if (!EVIDENCE[ev.evidence]) ev.evidence = 'proven';
+  if (typeof ev.confidence !== 'number') {
+    ev.confidence = ev.evidence === 'proven' ? 0.9
+      : ev.evidence === 'probable' ? 0.68
+      : ev.evidence === 'traditional' ? 0.35
+      : ev.evidence === 'hypothesis' ? 0.3
+      : 0.5;
+  }
+  ev.confidence = Math.max(0, Math.min(1, ev.confidence));
+  return ev;
+}
+
+EVENTS.forEach(normalizeEventEvidence);
+
 const ERA_JUMPS = [
   { label:'All History',  min:-300000, max:2026  },
   { label:'Prehistoric',  min:-300000, max:-8000 },
@@ -1723,6 +1839,7 @@ function _parseCenturyEvents(centuryKey, wikitext) {
       name: desc.slice(0, 60) + (desc.length > 60 ? '…' : ''),
       fullDesc: desc, year, baseYear: centuryKey,
       dynLevel: 'century', minTier: 3, cat, imp: 0.35, isDynamic: true,
+      evidence: 'reference', source: `${_centuryTitle(centuryKey)} Wikipedia events list`,
     });
   }
   return results;
@@ -1750,7 +1867,7 @@ async function fetchCenturyEvents(centuryKey) {
   try {
     const wikitext = await _fetchWikitext(_centuryTitle(centuryKey));
     if (!wikitext) { fetched.add(centuryKey); return; }
-    const evs = _parseCenturyEvents(centuryKey, wikitext);
+    const evs = _parseCenturyEvents(centuryKey, wikitext).map(normalizeEventEvidence);
     dynamicEvents = dynamicEvents.filter(e => !(e.dynLevel === 'century' && e.baseYear === centuryKey)).concat(evs);
     fetched.add(centuryKey);
     scheduleRender();
@@ -1790,6 +1907,7 @@ function _parseDecadeEvents(decadeKey, wikitext) {
       name: desc.slice(0, 58) + (desc.length > 58 ? '…' : ''),
       fullDesc: desc, year, baseYear: decadeKey,
       dynLevel: 'decade', minTier: 4, cat, imp: 0.28, isDynamic: true,
+      evidence: 'reference', source: `${_decadeTitle(decadeKey)} Wikipedia events list`,
     });
   }
   return results;
@@ -1812,7 +1930,7 @@ async function fetchDecadeEvents(decadeKey) {
   try {
     const wikitext = await _fetchWikitext(_decadeTitle(decadeKey));
     if (!wikitext) { fetched.add(decadeKey); return; }
-    const evs = _parseDecadeEvents(decadeKey, wikitext);
+    const evs = _parseDecadeEvents(decadeKey, wikitext).map(normalizeEventEvidence);
     dynamicEvents = dynamicEvents.filter(e => !(e.dynLevel === 'decade' && e.baseYear === decadeKey)).concat(evs);
     fetched.add(decadeKey);
     scheduleRender();
@@ -1845,6 +1963,7 @@ function _parseYearEvents(year, wikitext) {
       fullDesc: desc, year: fracYear, baseYear: year,
       month: m[1], day,
       dynLevel: 'year', minTier: 5, cat, imp: 0.22, isDynamic: true,
+      evidence: 'reference', source: `${year} Wikipedia events list`,
     });
   }
   return results;
@@ -1858,7 +1977,7 @@ async function fetchYearEvents(year) {
   try {
     const wikitext = await _fetchWikitext(String(year));
     if (!wikitext) { fetched.add(year); return; }
-    const evs = _parseYearEvents(year, wikitext);
+    const evs = _parseYearEvents(year, wikitext).map(normalizeEventEvidence);
     dynamicEvents = dynamicEvents.filter(e => !(e.dynLevel === 'year' && e.baseYear === year)).concat(evs);
     fetched.add(year);
     scheduleRender();
@@ -2278,6 +2397,7 @@ let scrollX = 0;
 let dragging = false, dragStartX = 0, dragBaseX = 0;
 let hoveredEv = null, selectedEv = null;
 let activeCategories = new Set(Object.keys(CATS));
+let activeEvidence = new Set(Object.keys(EVIDENCE));
 let filterRelated = false;
 let activeStory = null;   // null = free exploration, otherwise a STORIES entry
 let storyIndex = -1;      // index into storyEventsSorted() for prev/next nav
@@ -2362,7 +2482,7 @@ let _layoutSig = '';                               // cache invalidation key
 function computeLayout() {
   // H is part of the signature — layout must recompute when canvas height changes
   // (e.g. when the map resize handle is dragged)
-  const sig = `${scale.toFixed(8)}|${scrollX.toFixed(1)}|${H}|${[...activeCategories].sort()}|${filterRelated}|${activeStory?.id||''}|${dynamicEvents.length}`;
+  const sig = `${scale.toFixed(8)}|${scrollX.toFixed(1)}|${H}|${[...activeCategories].sort()}|${[...activeEvidence].sort()}|${filterRelated}|${activeStory?.id||''}|${dynamicEvents.length}`;
   if (sig === _layoutSig) return;
   _layoutSig = sig;
   _layout = new Map();
@@ -2466,6 +2586,7 @@ function visibleEvents() {
     }
     if (ev.year < vMin || ev.year > vMax) return false;
     if (!activeCategories.has(ev.cat)) return false;
+    if (!activeEvidence.has(ev.evidence)) return false;
     if (filterRelated && selectedEv && !isRelatedTo(ev, selectedEv)) return false;
     return true;
   });
@@ -2474,6 +2595,7 @@ function visibleEvents() {
     const dynVisible = dynamicEvents.filter(ev => {
       if (ev.year < vMin || ev.year > vMax) return false;
       if (!activeCategories.has(ev.cat)) return false;
+      if (!activeEvidence.has(ev.evidence)) return false;
       // Only show dynamic events when zoom is high enough for their tier
       if (scale < TIER_SCALE[ev.minTier]) return false;
       if (filterRelated && selectedEv && !isRelatedTo(ev, selectedEv)) return false;
@@ -2638,6 +2760,43 @@ function drawTicks() {
   }
 }
 
+function evidenceInfo(ev) {
+  return EVIDENCE[ev.evidence] || EVIDENCE.proven;
+}
+
+function drawEvidenceMark(ev, x, y, r, color, alpha) {
+  if (ev.evidence === 'hypothesis') {
+    drawShapePath(ctx, x, y, r + 3, CAT_SHAPE[ev.cat] || 'circle');
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.3;
+    ctx.setLineDash([3, 3]);
+    ctx.globalAlpha = alpha * 0.95;
+    ctx.stroke();
+    ctx.setLineDash([]);
+  } else if (ev.evidence === 'traditional') {
+    ctx.strokeStyle = 'rgba(255,255,255,.62)';
+    ctx.lineWidth = 1.2;
+    ctx.globalAlpha = alpha * 0.85;
+    ctx.beginPath();
+    ctx.moveTo(x - r * 0.82, y + r * 0.64);
+    ctx.lineTo(x + r * 0.82, y - r * 0.64);
+    ctx.stroke();
+  } else if (ev.evidence === 'reference') {
+    ctx.strokeStyle = 'rgba(255,255,255,.28)';
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = alpha * 0.7;
+    ctx.strokeRect(x - r * 0.65, y - r * 0.65, r * 1.3, r * 1.3);
+  } else if (ev.evidence === 'probable') {
+    ctx.beginPath();
+    ctx.arc(x, y, r + 3, 0, Math.PI * 2);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = alpha * 0.45;
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+
 function drawEvents() {
   const ay     = axisY();
   const evs    = visibleEvents();
@@ -2655,14 +2814,18 @@ function drawEvents() {
     const shape = CAT_SHAPE[ev.cat] || 'circle';
     const thr   = activeStory ? 0 : TIER_SCALE[ev.minTier];
     const alpha = thr === 0 ? 1 : Math.min(1, (scale - thr) / (thr * 2.5));
+    const statusAlpha = ev.evidence === 'reference' ? 0.62
+      : ev.evidence === 'hypothesis' ? 0.76
+      : ev.evidence === 'traditional' ? 0.82
+      : 1;
 
-    ctx.globalAlpha = alpha * (isSel ? 1 : isHov ? 0.97 : 0.85);
+    ctx.globalAlpha = alpha * statusAlpha * (isSel ? 1 : isHov ? 0.97 : 0.85);
 
     // Connector line — dashed, colored on hover/select, subtle otherwise
     const connColor = (isSel || isHov) ? color : 'rgba(110,115,200,0.14)';
     ctx.strokeStyle = connColor;
     ctx.lineWidth   = isSel ? 1.5 : isHov ? 1 : 0.75;
-    ctx.setLineDash(isSel ? [4, 4] : [2, 5]);
+    ctx.setLineDash(ev.evidence === 'hypothesis' ? [4, 6] : isSel ? [4, 4] : [2, 5]);
     ctx.beginPath(); ctx.moveTo(x, ay); ctx.lineTo(x, y); ctx.stroke();
     ctx.setLineDash([]);
 
@@ -2674,11 +2837,26 @@ function drawEvents() {
 
     // Fill shape
     drawShapePath(ctx, x, y, r, shape);
-    ctx.fillStyle = color; ctx.fill();
+    if (ev.evidence === 'hypothesis') {
+      ctx.fillStyle = 'rgba(6,6,18,.9)';
+      ctx.fill();
+      drawShapePath(ctx, x, y, r, shape);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    } else {
+      ctx.fillStyle = color; ctx.fill();
+    }
 
     // Inner highlight
-    drawShapePath(ctx, x, y, r * 0.55, shape);
-    ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fill();
+    if (ev.evidence !== 'hypothesis') {
+      drawShapePath(ctx, x, y, r * 0.55, shape);
+      ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fill();
+    }
+
+    drawEvidenceMark(ev, x, y, r, color, alpha * statusAlpha);
 
     // Outline on hover/select
     if (isSel || isHov) {
@@ -2773,7 +2951,9 @@ function updateScaleBar() {
   document.getElementById('scaleRange').innerHTML =
     `Viewing: <strong>${formatYear(vMin)}</strong> → <strong>${formatYear(vMax)}</strong>`;
   const visCount = visibleEvents().length;
-  const total    = activeStory ? activeStory.events.length : EVENTS.length;
+  const total    = activeStory
+    ? EVENTS.filter(ev => activeStory.events.includes(ev.id) && activeCategories.has(ev.cat) && activeEvidence.has(ev.evidence)).length
+    : EVENTS.filter(ev => activeCategories.has(ev.cat) && activeEvidence.has(ev.evidence)).length;
   document.getElementById('scaleCount').textContent = `${visCount} / ${total} events`;
 }
 
@@ -2786,12 +2966,15 @@ function openPanel(ev) {
   document.getElementById('panelTitle').textContent = ev.name;
 
   const cat = CATS[ev.cat] || { label:ev.cat, color:'#888' };
+  const evd = evidenceInfo(ev);
   const dateLabel = ev.isDynamic
     ? (ev.month && ev.day ? `${ev.month} ${ev.day}, ${ev.baseYear}` : formatYear(ev.year))
     : formatYear(ev.year);
   document.getElementById('panelMeta').innerHTML = `
     <span class="mtag" style="color:${cat.color};border-color:${cat.color}44">${cat.label}</span>
     <span class="mtag">${dateLabel}</span>
+    <span class="mtag evidence-${ev.evidence}">${evd.label}</span>
+    <span class="mtag">${Math.round(ev.confidence * 100)}% confidence</span>
     ${ev.isDynamic ? '<span class="mtag" style="color:var(--muted);font-size:.55rem">📖 Wikipedia</span>' : ''}
   `;
 
@@ -2809,6 +2992,10 @@ function openPanel(ev) {
 
   document.getElementById('panelDesc').textContent   = ev.desc   || '';
   document.getElementById('panelDetail').textContent = ev.detail || '';
+  document.getElementById('panelEvidence').innerHTML = `
+    <strong>${evd.label}:</strong> ${escapeHTML(evd.note)}
+    ${ev.source ? `<br><strong>Source note:</strong> ${escapeHTML(ev.source)}` : ''}
+  `;
 
   // Related filter button
   const btn = document.getElementById('btnFilterRelated');
@@ -2975,10 +3162,12 @@ document.getElementById('btnFilterRelated').addEventListener('click', () => {
 // ═══════════════════════════════════════════════
 
 function showTooltip(ev, cx, cy) {
+  const evd = evidenceInfo(ev);
   document.getElementById('ttTitle').textContent = ev.name;
-  document.getElementById('ttYear').textContent  = ev.isDynamic
+  const yearText = ev.isDynamic
     ? (ev.month && ev.day ? `${ev.month} ${ev.day}, ${ev.baseYear}` : formatYear(ev.year))
     : formatYear(ev.year);
+  document.getElementById('ttYear').textContent = `${yearText} · ${evd.label}`;
   document.getElementById('ttDesc').textContent  = ev.isDynamic
     ? (ev.fullDesc || ev.name)
     : (ev.desc || '');
@@ -3152,7 +3341,7 @@ function storyEventsSorted() {
   if (!activeStory) return [];
   return activeStory.events
     .map(id => EVENTS.find(e => e.id === id))
-    .filter(Boolean)
+    .filter(ev => ev && activeCategories.has(ev.cat) && activeEvidence.has(ev.evidence))
     .sort((a, b) => a.year - b.year);
 }
 
@@ -3256,6 +3445,7 @@ function searchEvents(query) {
   if (!query || query.length < 2) return [];
   const q = query.toLowerCase();
   return EVENTS
+    .filter(ev => activeCategories.has(ev.cat) && activeEvidence.has(ev.evidence))
     .filter(ev => ev.name.toLowerCase().includes(q) ||
                   (ev.desc && ev.desc.toLowerCase().includes(q)) ||
                   (ev.detail && ev.detail.toLowerCase().includes(q)))
@@ -3279,11 +3469,12 @@ function renderSearchResults(results) {
   }
   el.innerHTML = results.map((ev, i) => {
     const cat = CATS[ev.cat] || { label: ev.cat, color: '#888' };
+    const evd = evidenceInfo(ev);
     return `<div class="search-result" data-idx="${i}" data-id="${ev.id}">
       ${shapeToSVG(CAT_SHAPE[ev.cat] || 'circle', cat.color, 10)}
       <div>
         <div class="search-result-name">${escapeHTML(ev.name)}</div>
-        <div class="search-result-yr">${formatYear(ev.year)} · <span class="search-result-cat">${cat.label}</span></div>
+        <div class="search-result-yr">${formatYear(ev.year)} · <span class="search-result-cat">${cat.label}</span> · ${evd.short}</div>
       </div>
     </div>`;
   }).join('');
@@ -3417,6 +3608,23 @@ function buildUI() {
       updateScaleBar(); scheduleRender();
     });
     legendItems.appendChild(item);
+  });
+
+  const evidenceItems = document.getElementById('evidenceItems');
+  Object.entries(EVIDENCE).forEach(([key, evd]) => {
+    const item = document.createElement('div');
+    item.className = 'evidence-item active';
+    item.title = evd.note;
+    item.innerHTML = `<span class="evidence-swatch ${key}" style="color:${evd.color}"></span><span>${evd.short}</span>`;
+    item.addEventListener('click', () => {
+      if (activeEvidence.has(key)) {
+        if (activeEvidence.size > 1) { activeEvidence.delete(key); item.classList.remove('active'); }
+      } else {
+        activeEvidence.add(key); item.classList.add('active');
+      }
+      updateScaleBar(); scheduleRender();
+    });
+    evidenceItems.appendChild(item);
   });
 }
 
