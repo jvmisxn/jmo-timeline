@@ -162,6 +162,18 @@
       font-weight: 500; cursor: pointer; transition: all .18s;
       letter-spacing: .02em; white-space: nowrap;
     }
+    .chrome-btn {
+      display: flex; align-items: center; gap: 6px;
+      min-height: 34px; padding: 0 14px;
+      background: transparent; border: 1px solid var(--border-hi);
+      color: var(--text-dim); border-radius: 999px;
+      font-size: .7rem; font-family: inherit; font-weight: 500;
+      cursor: pointer; transition: all .18s; white-space: nowrap;
+    }
+    .chrome-btn:hover, .chrome-btn.active {
+      background: var(--accent-dim); border-color: var(--accent);
+      color: var(--accent-hi);
+    }
     .stories-btn:hover {
       background: var(--accent-dim); border-color: var(--accent);
       color: var(--accent-hi); box-shadow: 0 0 14px var(--accent-glow);
@@ -269,6 +281,7 @@
       background: rgba(8,9,13,.86); border-bottom: 1px solid var(--border);
       overflow: visible; flex-shrink: 0; flex-wrap: wrap;
     }
+    .legend-bar.is-hidden { display: none; }
     .legend-bar::-webkit-scrollbar { display: none; }
     .filter-section { display: flex; align-items: center; gap: 7px; min-width: 0; flex-wrap: wrap; }
     .legend-label {
@@ -324,6 +337,7 @@
 
     /* ── Map ────────────────────────────────── */
     #map { height: clamp(260px, 34vh, 390px); flex-shrink: 0; background: var(--bg); position: relative; }
+    #map.map-hidden, #mapResizeHandle.map-hidden { display: none; }
     .map-hint-overlay {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
       background: rgba(6,6,18,.82); backdrop-filter: blur(10px);
@@ -655,7 +669,8 @@
       .era-btns { display: none; }
       .legend-toggle-btn { display: block; }
       .stories-btn { min-width: 38px; padding: 0 11px; }
-      .stories-btn span { display: none; }
+      .stories-btn span, .chrome-btn .chrome-label { display: none; }
+      .chrome-btn { min-width: 38px; padding: 0 11px; justify-content: center; }
 
       .search-wrap.open { width: min(52vw, 210px); }
       .search-wrap.open .search-input { font-size: .68rem; }
@@ -745,6 +760,14 @@
       <input class="search-input" id="searchInput" type="text" placeholder="Search events…" autocomplete="off" />
       <div class="search-results" id="searchResults"></div>
     </div>
+    <button class="chrome-btn" id="btnToggleMap" type="button" aria-pressed="false">
+      <span class="chrome-icon" aria-hidden="true">□</span>
+      <span class="chrome-label">Map</span>
+    </button>
+    <button class="chrome-btn" id="btnToggleFilters" type="button" aria-pressed="false">
+      <span class="chrome-icon" aria-hidden="true">≡</span>
+      <span class="chrome-label">Filters</span>
+    </button>
     <button class="stories-btn" id="btnStories" aria-label="Open stories">
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
         <rect x="1" y="2" width="12" height="1.5" rx=".75" fill="currentColor"/>
@@ -2633,35 +2656,28 @@ function _resolveY(x, r, lw, ay, preferAbove, placed, pad, labelH, start) {
   const MIN_Y = H * 0.03;
   const MAX_Y = H * 0.97;
 
-  // Try preferred side first, then the opposite
-  for (const dir of (preferAbove ? [-1, 1] : [1, -1])) {
-    for (let offset = start; offset < H * 0.95; offset += STEP) {
-      const y = ay + dir * offset;
-      if (y < MIN_Y || y > MAX_Y) break;
+  // Keep each event on its deterministic side of the axis. This prevents
+  // the disorienting above/below flipping that happened when zoom changed.
+  const dir = preferAbove ? -1 : 1;
+  for (let offset = start; offset < H * 0.95; offset += STEP) {
+    const y = ay + dir * offset;
+    if (y < MIN_Y || y > MAX_Y) break;
 
-      // Collision check using axis-aligned bounding boxes that include
-      // the dot AND its label above/below. This prevents text overlap.
-      const clear = nearby.every(p => {
-        // Dot-to-dot circular distance
-        const dx = x - p.x, dy = y - p.y;
-        const dotNeed = r + p.r + pad;
-        const dotClear = dx * dx + dy * dy >= dotNeed * dotNeed;
+    const clear = nearby.every(p => {
+      const dx = x - p.x, dy = y - p.y;
+      const dotNeed = r + p.r + pad;
+      const dotClear = dx * dx + dy * dy >= dotNeed * dotNeed;
 
-        // Label-to-label vertical overlap check:
-        // Each dot's label extends ~labelH pixels above (if above axis) or below.
-        // We need vertical separation of at least (r + labelH + pad) between
-        // dots that are horizontally close enough for labels to overlap.
-        const labelOverlapX = Math.abs(dx) < (lw / 2 + p.lw / 2 + 6);
-        const vNeed = r + p.r + labelH + pad;
-        const labelClear = !labelOverlapX || Math.abs(dy) >= vNeed;
+      const labelOverlapX = Math.abs(dx) < (lw / 2 + p.lw / 2 + 6);
+      const vNeed = r + p.r + labelH + pad;
+      const labelClear = !labelOverlapX || Math.abs(dy) >= vNeed;
 
-        return dotClear && labelClear;
-      });
-      if (clear) return y;
-    }
+      return dotClear && labelClear;
+    });
+    if (clear) return y;
   }
-  // Fallback — extremely rare
-  return ay + (preferAbove ? -1 : 1) * start;
+
+  return ay + dir * Math.min(start, H * 0.42);
 }
 
 function eventY(ev) {
@@ -3083,7 +3099,10 @@ function updateEraButtons(vMin, vMax) {
 
 function openPanel(ev) {
   selectedEv = ev;
-  if (ev.loc && mapCollapsed) setMapCollapsed(false);
+  if (ev.loc) {
+    setMapHidden(false);
+    if (mapCollapsed) setMapCollapsed(false);
+  }
   document.getElementById('panelTitle').textContent = ev.name;
 
   const cat = CATS[ev.cat] || { label:ev.cat, color:'#888' };
@@ -3423,6 +3442,19 @@ canvas.addEventListener('touchend', e => {
 // ── Map collapse / expand ──
 const mapToggleBtn = document.getElementById('mapToggleBtn');
 let mapCollapsed = false;
+let mapHidden = false;
+function setMapHidden(hidden) {
+  mapHidden = hidden;
+  mapEl.classList.toggle('map-hidden', hidden);
+  mapHandle.classList.toggle('map-hidden', hidden);
+  const btn = document.getElementById('btnToggleMap');
+  if (btn) {
+    btn.classList.toggle('active', !hidden);
+    btn.setAttribute('aria-pressed', hidden ? 'false' : 'true');
+  }
+  if (!hidden) leafMap.invalidateSize();
+  resize();
+}
 function setMapCollapsed(collapsed) {
   mapCollapsed = collapsed;
   mapEl.classList.toggle('mob-collapsed', mapCollapsed);
@@ -3438,6 +3470,15 @@ mapToggleBtn.addEventListener('click', () => {
 // ── Legend collapse / expand (mobile) ──
 const legendBar       = document.getElementById('legendBar');
 const legendToggleBtn = document.getElementById('legendToggleBtn');
+function setFiltersHidden(hidden) {
+  legendBar.classList.toggle('is-hidden', hidden);
+  const btn = document.getElementById('btnToggleFilters');
+  if (btn) {
+    btn.classList.toggle('active', !hidden);
+    btn.setAttribute('aria-pressed', hidden ? 'false' : 'true');
+  }
+  resize();
+}
 function setLegendCollapsed(collapsed) {
   legendBar.classList.toggle('mob-collapsed', collapsed);
   legendToggleBtn.textContent = collapsed ? '☰ Filter' : '✕ Close';
@@ -3720,6 +3761,8 @@ function buildUI() {
   initSearch();
 
   // Stories
+  document.getElementById('btnToggleMap').addEventListener('click', () => setMapHidden(!mapHidden));
+  document.getElementById('btnToggleFilters').addEventListener('click', () => setFiltersHidden(!legendBar.classList.contains('is-hidden')));
   document.getElementById('btnStories').addEventListener('click', openStoriesModal);
   document.getElementById('btnCloseStories').addEventListener('click', closeStoriesModal);
   document.getElementById('storiesModal').addEventListener('click', e => {
@@ -3822,9 +3865,10 @@ buildUI();
 document.getElementById('btnZoomOut').addEventListener('click', () => zoomAt(1 / 1.28, W / 2));
 document.getElementById('btnZoomIn').addEventListener('click', () => zoomAt(1.28, W / 2));
 document.getElementById('btnZoomReset').addEventListener('click', resetTimelineView);
+setMapHidden(true);
+setFiltersHidden(true);
 if (window.matchMedia('(max-width:768px)').matches) {
   setLegendCollapsed(true);
-  setMapCollapsed(true);
 }
 resize();
 </script>
