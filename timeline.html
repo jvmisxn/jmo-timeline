@@ -823,7 +823,7 @@
         <button class="canvas-control-btn" id="btnZoomReset" type="button" aria-label="Reset zoom">⌂</button>
         <button class="canvas-control-btn" id="btnZoomIn" type="button" aria-label="Zoom in">+</button>
       </div>
-      <div class="hint">Timeline canvas</div>
+      <div class="hint">Drag to pan · Scroll to zoom</div>
     </div>
   </div>
 
@@ -2531,6 +2531,10 @@ const area    = document.getElementById('canvasArea');
 const panel   = document.getElementById('popup');
 const mainEl  = document.querySelector('.main');
 const tooltip = document.getElementById('tooltip');
+const hintEl  = document.querySelector('.hint');
+const HINT_DEFAULT = window.matchMedia('(max-width:768px)').matches
+  ? 'Tap events to explore'
+  : 'Drag to pan · Scroll to zoom';
 
 let W = 0, H = 0;
 let DPR = 1;
@@ -3377,6 +3381,13 @@ window.addEventListener('mousemove', e => {
   if (hit !== hoveredEv) { hoveredEv = hit; scheduleRender(); }
   if (hit) { showTooltip(hit, e.clientX, e.clientY); canvas.style.cursor = 'pointer'; }
   else     { hideTooltip(); canvas.style.cursor = 'grab'; }
+  if (hintEl && !dragging) hintEl.textContent = formatYear(Math.round(xToYear(mx)));
+});
+
+canvas.addEventListener('mouseleave', () => {
+  if (hintEl) hintEl.textContent = HINT_DEFAULT;
+  hideTooltip();
+  if (hoveredEv) { hoveredEv = null; scheduleRender(); }
 });
 
 canvas.addEventListener('wheel', e => {
@@ -3513,9 +3524,8 @@ document.addEventListener('pointerdown', e => {
 
 // ── Canvas hint: simpler text on mobile ──
 (function () {
-  const hint = document.querySelector('.hint');
-  if (hint && window.matchMedia('(max-width:768px)').matches)
-    hint.textContent = 'Timeline canvas';
+  if (hintEl && window.matchMedia('(max-width:768px)').matches)
+    hintEl.textContent = 'Tap events to explore';
 })();
 
 // ═══════════════════════════════════════════════
@@ -3873,8 +3883,7 @@ window.addEventListener('resize', () => {
   const z = mapWidthZoom();
   leafMap.setMinZoom(z);
   if (leafMap.getZoom() < z) leafMap.setZoom(z, { animate: false });
-  const hint = document.querySelector('.hint');
-  if (hint) hint.textContent = 'Timeline canvas';
+  if (hintEl) hintEl.textContent = HINT_DEFAULT;
 });
 buildUI();
 document.getElementById('btnZoomOut').addEventListener('click', () => zoomAt(1 / 1.28, W / 2));
