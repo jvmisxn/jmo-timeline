@@ -1819,6 +1819,29 @@ const EVENTS = [
     loc:[37.39,-122.08,10,'San Francisco, USA'],
     desc:'Large language models bring AI capabilities into the mainstream.',
     detail:"OpenAI's ChatGPT (2022) demonstrated that large language models could reason, write, and code at near-human levels. This sparked massive investment and urgent questions about automation and existential risk." },
+
+  { id:'e_perry_japan', name:"Perry's Black Ships Open Japan", year:1853, minTier:4, cat:'politics', imp:0.78,
+    loc:[35.45,139.64,9,'Edo Bay, Japan'],
+    evidence:'proven', confidence:0.95,
+    source:'Treaty of Kanagawa (1854), Avalon Project; U.S. National Archives.',
+    desc:'U.S. Commodore Perry forces Japan to end 200 years of isolation.',
+    detail:"In July 1853, Commodore Matthew Perry sailed four steam-powered warships into Edo (Tokyo) Bay and demanded Japan open its ports to American trade. Unable to match the firepower, Japan signed the Treaty of Kanagawa in 1854 and further 'unequal treaties' with Western powers thereafter. This external shock shattered the Tokugawa shogunate's legitimacy and directly triggered the Meiji Restoration." },
+
+  { id:'e_meiji_restoration', name:'Meiji Restoration', year:1868, minTier:4, cat:'politics', imp:0.88,
+    loc:[35.01,135.76,9,'Kyoto, Japan'],
+    span:[1868,1912],
+    evidence:'proven', confidence:0.95,
+    source:'Fordham Internet History Sourcebooks (Charter Oath 1868, Meiji Constitution 1889); W.G. Beasley, The Meiji Restoration (Stanford UP, 1972).',
+    desc:'Japan dismantles feudalism and industrializes at state speed to match Western powers.',
+    detail:"In January 1868, a coalition of southwestern clans restored imperial rule under Emperor Meiji, ending the Tokugawa shogunate (1603–1868). The Charter Oath (April 1868) pledged deliberative government and openness to the world. Within decades Japan abolished the samurai class (1876), adopted a Prussian-modeled constitution (1889), built railroads and conscript armies, and defeated China (1895) and Russia (1905) — the first Asian power to beat a European great power in modern war. By Versailles (1919), Japan sat as one of the 'Big Five.' The same drive that modernized Japan also fueled aggressive imperialism in Korea, Taiwan, and China." },
+
+  { id:'e_russo_japanese_war', name:'Russo-Japanese War', year:1904, minTier:4, cat:'conflict', imp:0.80,
+    loc:[38.9,121.6,7,'Manchuria / Yellow Sea'],
+    span:[1904,1905],
+    evidence:'proven', confidence:0.95,
+    source:'Treaty of Portsmouth (1905), Avalon Project; Britannica.',
+    desc:'Japan defeats Russia — first time an Asian power beats a European great power in a modern war.',
+    detail:"Japan's surprise attack on the Russian fleet at Port Arthur (February 1904) opened a war that ended at Tsushima (May 1905), where the Japanese navy destroyed Russia's Baltic Fleet. The Treaty of Portsmouth (1905, brokered by Theodore Roosevelt, who won the Nobel Peace Prize for it) ceded Russia's lease on Port Arthur and recognized Japanese dominance in Korea. The victory electrified anti-colonial movements worldwide from India to Egypt, demonstrating that Western dominance was not inevitable." },
 ];
 
 function normalizeEventEvidence(ev) {
