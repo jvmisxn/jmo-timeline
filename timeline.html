@@ -1667,6 +1667,14 @@ const EVENTS = [
     desc:'The UN is created to promote international peace and human rights.',
     detail:"The United Nations, founded in 1945 by 51 nations (now 193), produced the Universal Declaration of Human Rights (1948) and established the WHO, UNESCO, and UNICEF." },
 
+  { id:'e_bretton_woods', name:'Bretton Woods Conference', year:1944, minTier:5, cat:'politics', imp:0.85,
+    span:[1944,1944],
+    loc:[44.25,-71.68,11,'Bretton Woods, New Hampshire, USA'],
+    evidence:'proven', confidence:1.0,
+    source:'Federal Reserve History, federalreservehistory.org; UN Monetary and Financial Conference records, July 1944.',
+    desc:'44 nations meet in New Hampshire and build the postwar monetary order: fixed exchange rates, the IMF, and the World Bank.',
+    detail:"In July 1944, representatives of 44 Allied nations gathered at the Mount Washington Hotel in Bretton Woods, New Hampshire. Led by US Treasury official Harry Dexter White and British economist John Maynard Keynes, the conference created the International Monetary Fund (IMF) and the International Bank for Reconstruction and Development (World Bank). The core mechanism: member currencies were pegged to the US dollar, and the dollar was convertible to gold at $35 per ounce. The system made the dollar the world's reserve currency and underpinned three decades of postwar economic expansion. It began to unravel in the 1960s as US deficits and dollar outflows eroded confidence in gold convertibility, culminating in Nixon's suspension of the gold window in August 1971." },
+
   { id:'e_bandung', name:'Bandung Conference', year:1955, minTier:5, cat:'politics', imp:0.72,
     span:[1955,1955],
     loc:[-6.91,107.61,10,'Bandung, Indonesia'],
@@ -1744,6 +1752,13 @@ const EVENTS = [
     loc:[37.39,-122.04,11,'Santa Clara, USA'],
     desc:"Intel's 4004 chip launches the era of personal computing.",
     detail:"Intel's 4004 (1971) was the first commercial microprocessor. It enabled progressively smaller and cheaper computers, from the Apple II (1977) to the IBM PC (1981), and ultimately smartphones." },
+
+  { id:'e_nixon_shock', name:'Nixon Shock — Gold Window Closes', year:1971, minTier:5, cat:'politics', imp:0.88,
+    loc:[38.90,-77.04,10,'Washington D.C., USA'],
+    evidence:'proven', confidence:1.0,
+    source:'Federal Reserve History, federalreservehistory.org/essays/gold-convertibility-ends; Nixon Address to the Nation, August 15, 1971.',
+    desc:"Nixon suspends dollar-gold convertibility on August 15, 1971, ending the Bretton Woods system and launching the era of floating fiat currencies.",
+    detail:"On August 15, 1971, President Nixon announced the US would no longer convert dollars to gold at the fixed $35/oz rate, unilaterally ending the Bretton Woods international monetary system. Combined with a temporary wage-price freeze and a 10% import surcharge, the package became known as the 'Nixon Shock.' The decision was driven by a worsening US balance of payments deficit, inflation from Vietnam War spending, and growing foreign dollar holdings that exceeded US gold reserves. The system of fixed exchange rates was gradually replaced by floating currencies, formalized at the Smithsonian Agreement (December 1971) and confirmed by the Jamaica Accords (1976). The move permanently entrenched the US dollar as the dominant reserve currency — now backed by economic power and Treasury bonds rather than gold — and reshaped global financial markets, trade policy, and monetary theory." },
 
   { id:'e_aids', name:'AIDS Epidemic', year:1981, minTier:5, cat:'biology', imp:0.85,
     loc:[34.05,-118.24,9,'Los Angeles, USA'],
