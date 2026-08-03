@@ -3246,6 +3246,9 @@ function updateEraButtons(vMin, vMax) {
 
 function openPanel(ev) {
   selectedEv = ev;
+  // Scroll panel body to top so new event header is always visible on navigation
+  const pbEl = document.querySelector('.pb');
+  if (pbEl) pbEl.scrollTop = 0;
   if (ev.loc) {
     setMapHidden(false);
     if (mapCollapsed) setMapCollapsed(false);
@@ -3257,11 +3260,15 @@ function openPanel(ev) {
   const dateLabel = ev.isDynamic
     ? (ev.month && ev.day ? `${ev.month} ${ev.day}, ${ev.baseYear}` : formatYear(ev.year))
     : formatYear(ev.year);
+  const confPct = Math.round(ev.confidence * 100);
+  const confTag = ev.evidence === 'proven' && confPct >= 99
+    ? ''
+    : `<span class="mtag">${confPct}% confidence</span>`;
   document.getElementById('panelMeta').innerHTML = `
     <span class="mtag" style="color:${cat.color};border-color:${cat.color}44">${cat.label}</span>
     <span class="mtag">${dateLabel}</span>
     <span class="mtag evidence-${ev.evidence}">${evd.label}</span>
-    <span class="mtag">${Math.round(ev.confidence * 100)}% confidence</span>
+    ${confTag}
     ${ev.isDynamic ? '<span class="mtag" style="color:var(--muted);font-size:.55rem">📖 Wikipedia</span>' : ''}
   `;
 
